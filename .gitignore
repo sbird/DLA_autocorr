@@ -1,0 +1,6 @@
+*.pyc
+.*.swp
+.*.swo
+_*_priv.so
+*.o
+tags
