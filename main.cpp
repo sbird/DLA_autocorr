@@ -171,7 +171,7 @@ int main(int argc, char* argv[]){
           std::cout<< "Read " <<Npart<<", now interpolating"<<std::endl;
           if(Npart > 0){
              /*Do the hard SPH interpolation*/
-             if(SPH_interpolate(field, comp, FIELD_DIMS, Pos, hsml, Mass, NULL, Npart, 1))
+             if(SPH_interpolate(field, comp, FIELD_DIMS, Pos, hsml, Mass, NULL, snap.box100, Npart, 1))
                  exit(1);
              /*Free the particle list once we don't need it*/
              free(Pos);

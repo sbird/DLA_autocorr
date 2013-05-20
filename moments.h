@@ -38,7 +38,7 @@ class H5Snap
         int load_hdf5_snapshot(const char *ffname, int fileno, float **Pos, float ** Mass, float ** h);
 };
 
-int SPH_interpolate(double * field, double * comp, const int nx, float *pos, float *radii, float *value, float *weights, const int nval, const int periodic);
+int SPH_interpolate(double * field, double * comp, const int nx, float *pos, float *radii, float *value, float *weights, const double box, const int nval, const int periodic);
 
 #ifdef __cplusplus
 extern "C" {

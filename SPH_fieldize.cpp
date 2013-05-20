@@ -33,6 +33,7 @@ double compute_sph_cell_weight(double rr, double r0)
 inline void KahanSum(double* sum, double* comp, const double input, const int xoff,const int yoff, const int zoff, const int nx)
 {
   const int off = (xoff*nx+yoff)*(2*(nx/2+EXTRA))+zoff;
+  assert(off < nx*nx*(2*nx/2+1));
   const double yy = input - *(comp+off);
   const double temp = *(sum+off)+yy;     //Alas, sum is big, y small, so low-order digits of y are lost.
   *(comp+off) = (temp - *(sum+off)) -yy; //(t - sum) recovers the high-order part of y; subtracting y recovers -(low part of y)
@@ -51,19 +52,21 @@ inline void KahanSum(double* sum, double* comp, const double input, const int xo
 /**
  Do the hard work interpolating with an SPH kernel particles handed to us from python.
 */
-int SPH_interpolate(double * field, double * comp, const int nx, float *pos, float *radii, float *value, float *weights, const int nval, const int periodic)
+int SPH_interpolate(double * field, double * comp, const int nx, float *pos, float *radii, float *value, float *weights, const double box, const int nval, const int periodic)
 {
     assert(value);
     assert(pos);
     assert(radii);
     assert(field);
     assert(comp);
+    //Convert to grid units
+    const double conv = (nx-1)/box;
     for(int p=0;p<nval;p++){
         //Temp variables
         float pp[3];
         //Max size of kernel
         int upgx[3], lowgx[3];
-        float rr= radii[p];
+        float rr= radii[p]*conv;
         float val= value[p];
         double weight = 1;
         if (weights != NULL){
@@ -71,7 +74,7 @@ int SPH_interpolate(double * field, double * comp, const int nx, float *pos, flo
         }
         for(int i=0; i<3; i++)
         {
-            pp[i] = pos[3*p+i];
+            pp[i] = conv*pos[3*p+i];
             upgx[i] = floor(pp[i]+rr);
             lowgx[i] = floor(pp[i]-rr);
         }
