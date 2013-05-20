@@ -5,11 +5,6 @@
 #include <stdlib.h>
 #include "moments.h"
 
-#ifndef N_TYPE
-        #define N_TYPE 6
-        #define PARTTYPE 0
-#endif
-
 const double gamma_UVB[6] = {3.99e-14, 3.03e-13, 6e-13, 5.53e-13, 4.31e-13, 3.52e-13};
 //Photoion rate if T = 1e4K.
 double rah_photo_rate(double nH, int redshift)
@@ -52,13 +47,10 @@ hsize_t get_single_dataset(const char *name, float * data_ptr,  hsize_t data_len
 }
 
 /* this routine loads header data from the first file of an HDF5 snapshot.*/
-int load_hdf5_header(const char *ffname, double  *atime, double *redshift, double *box100, double *h100, double *Omega0)
+H5Snap::H5Snap(const char *ffname)
 {
-  int i;
   int npart[N_TYPE];
-  double mass[N_TYPE];
   int64_t npart_all[N_TYPE];
-  double OmegaLambda;
   H5::H5File hdf_file(ffname,H5F_ACC_RDONLY);
   H5::Group hdf_group(hdf_file.createGroup("/Header"));
   /* Read some header functions */
@@ -66,41 +58,36 @@ int load_hdf5_header(const char *ffname, double  *atime, double *redshift, doubl
   hdf_group.openAttribute("Redshift").read(H5T_NATIVE_DOUBLE,&redshift); 
   hdf_group.openAttribute("BoxSize").read(H5T_NATIVE_DOUBLE,&box100); 
   hdf_group.openAttribute("HubbleParam").read(H5T_NATIVE_DOUBLE,&h100); 
-  hdf_group.openAttribute("Omega0").read(H5T_NATIVE_DOUBLE,&Omega0); 
-  hdf_group.openAttribute("OmegaLambda").read(H5T_NATIVE_INT,&OmegaLambda); 
+  hdf_group.openAttribute("Omega0").read(H5T_NATIVE_DOUBLE,&omega0); 
   /*Get the total number of particles*/
   hdf_group.openAttribute("NumPart_Total").read(H5T_NATIVE_INT,&npart); 
-  for(i = 0; i< N_TYPE; i++)
+  for(int i = 0; i< N_TYPE; i++)
           npart_all[i]=npart[i];
   hdf_group.openAttribute("NumPart_Total_HighWord").read(H5T_NATIVE_INT,&npart); 
-  for(i = 0; i< N_TYPE; i++)
+  for(int i = 0; i< N_TYPE; i++)
           npart_all[i]+=(1L<<32)*npart[i];
-  hdf_group.openAttribute("MassTable").read(H5T_NATIVE_DOUBLE,&npart);
+  hdf_group.openAttribute("MassTable").read(H5T_NATIVE_DOUBLE,&mass);
   
-  if(npart_all[PARTTYPE] <=0)
-          return -1;
+  omegab = mass[0]/(mass[0]+mass[1])*omega0;
   printf("NumPart=[%ld,%ld,%ld,%ld,%ld,%ld], ",npart_all[0],npart_all[1],npart_all[2],npart_all[3],npart_all[4],npart_all[5]);
   printf("Masses=[%g %g %g %g %g %g], ",mass[0],mass[1],mass[2],mass[3],mass[4],mass[5]);
-  printf("Redshift=%g, Ω_M=%g Ω_L=%g\n",(*redshift),*Omega0,OmegaLambda);
-  printf("Expansion factor = %f\n",(*atime));
-  printf("Hubble = %g Box=%g \n",(*h100),(*box100));
-  return 0;
+  printf("Redshift=%g, Ω_M=%g\n",redshift,omega0);
+  printf("Expansion factor = %f\n",atime);
+  printf("Hubble = %g Box=%g \n",h100,box100);
 }
   
 /* This routine loads particle data from a single HDF5 snapshot file.
  * A snapshot may be distributed into multiple files. */
-int load_hdf5_snapshot(const char *ffname, double *omegab, int fileno, double h100, double redshift,double Omega0, float **Pos_out, float **Mass_out, float **h_out)
+int H5Snap::load_hdf5_snapshot(const char *ffname, int fileno, float **Pos_out, float **Mass_out, float **h_out)
 {
   size_t i;
   int npart[N_TYPE];
-  double mass[N_TYPE];
   char name[16];
   hsize_t length;
   H5::H5File hdf_file(ffname,H5F_ACC_RDONLY);
 
   {
     H5::Group hdf_group(hdf_file.createGroup("/Header"));
-    hdf_group.openAttribute("MassTable").read(H5T_NATIVE_DOUBLE,&mass);
     hdf_group.openAttribute("NumPart_ThisFile").read(H5T_NATIVE_INT,&npart);
   }
 
@@ -132,7 +119,7 @@ int load_hdf5_snapshot(const char *ffname, double *omegab, int fileno, double h1
   else
      if (length != get_single_dataset("Masses",Mass,length,&hdf_group,fileno))
              goto exit;
-  (*omegab) = Mass[0]/(Mass[0]+mass[1])*Omega0;
+  omegab = Mass[0]/(Mass[0]+mass[1])*omega0;
   /* The HI fraction, nHI/nH */
   if (length != get_single_dataset("NeutralHydrogenAbundance",fraction,length,&hdf_group,fileno))
      goto exit;
