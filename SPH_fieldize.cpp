@@ -1,5 +1,6 @@
 #include <cmath>
 #include <algorithm>
+#include <cassert>
 #include <stdio.h>
 
 #include "moments.h"
@@ -52,6 +53,11 @@ inline void KahanSum(double* sum, double* comp, const double input, const int xo
 */
 int SPH_interpolate(double * field, double * comp, const int nx, float *pos, float *radii, float *value, float *weights, const int nval, const int periodic)
 {
+    assert(value);
+    assert(pos);
+    assert(radii);
+    assert(field);
+    assert(comp);
     for(int p=0;p<nval;p++){
         //Temp variables
         float pp[3];
@@ -108,7 +114,7 @@ int SPH_interpolate(double * field, double * comp, const int nx, float *pos, flo
                     total+=sph_w[gz-lowgx[2]][gy-lowgx[1]][gx-lowgx[0]];
                 }
         if(total == 0){
-           fprintf(stderr,"Massless particle detected! rr=%g gy=%d gx=%d nsub = %d pp= %g %g \n",rr,upgx[1]-lowgx[1],upgx[0]-lowgx[0], nsub,-pp[0]+lowgx[0],-pp[1]+lowgx[1]);
+           fprintf(stderr,"Massless particle detected! rr=%g gz=%d gy=%d gx=%d nsub = %d pp= %g %g \n",rr,upgx[2]-lowgx[2], upgx[1]-lowgx[1],upgx[0]-lowgx[0], nsub,-pp[0]+lowgx[0],-pp[1]+lowgx[1]);
             return 1;
         }
         //Deal with cells that have wrapped around the edges of the grid

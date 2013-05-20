@@ -1,4 +1,5 @@
 #include <hdf5.h>
+#include <cassert>
 #include <hdf5_hl.h>
 #include <math.h>
 #include <string.h>
@@ -124,13 +125,12 @@ int load_hdf5_header(const char *ffname, double  *atime, double *redshift, doubl
   
 /* This routine loads particle data from a single HDF5 snapshot file.
  * A snapshot may be distributed into multiple files. */
-int load_hdf5_snapshot(const char *ffname, double *omegab, int fileno, double h100, double redshift, float *Pos, float * Mass, float * h)
+int load_hdf5_snapshot(const char *ffname, double *omegab, int fileno, double h100, double redshift, float **Pos_out, float **Mass_out, float **h_out)
 {
   size_t i;
   int npart[N_TYPE];
   double mass[N_TYPE];
   char name[16];
-  float *fraction, *density;
   double Omega0;
   hid_t hdf_group,hdf_file;
   hsize_t length;
@@ -151,15 +151,16 @@ int load_hdf5_snapshot(const char *ffname, double *omegab, int fileno, double h1
       return -1;
   }
   const int np = npart[PARTTYPE];
-  int success = ((Pos=(float *)malloc(np*3*sizeof(float))) &&
-    (Mass=(float *) malloc(np*sizeof(float))) &&
-   (fraction=(float *)malloc(np*sizeof(float))) &&
-   (density=(float *)malloc(np*sizeof(float))) &&
-  ((h=(float *)malloc(np*sizeof(float)))));
-  if(!success) {
-    fprintf(stderr,"Failed to allocate memory.\n\n");
-    exit(1);
-  }
+  float * Pos=(float *)malloc(np*3*sizeof(float));
+  float * Mass=(float *) malloc(np*sizeof(float));
+  float * h=(float *)malloc(np*sizeof(float));
+  float * fraction=(float *)malloc(np*sizeof(float));
+  float * density=(float *)malloc(np*sizeof(float));
+  assert(Mass);
+  assert(Pos);
+  assert(fraction);
+  assert(density);
+  assert(h);
   H5Gclose(hdf_group);
   /*Open particle data*/
   snprintf(name,16,"/PartType%d",PARTTYPE);
@@ -225,5 +226,8 @@ exit:
   }
   free(fraction);
   free(density);
+  *Pos_out = Pos;
+  *Mass_out = Mass;
+  *h_out = h;
   return length;
 }

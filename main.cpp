@@ -14,6 +14,7 @@
 
 #include "moments.h"
 #include <math.h>
+#include <cassert>
 //For getopt
 #include <unistd.h>
 //For omp_get_num_procs
@@ -164,10 +165,11 @@ int main(int argc, char* argv[]){
           /*If we ran out of files, we're done*/
           if(!(file_readable(ffname.c_str()) && H5Fis_hdf5(ffname.c_str()) > 0))
                   break;
-          Npart=load_hdf5_snapshot(ffname.c_str(), &omegab,fileno, h100, redshift, Pos, Mass, hsml);
+          Npart=load_hdf5_snapshot(ffname.c_str(), &omegab,fileno, h100, redshift, &Pos, &Mass, &hsml);
           if(Npart > 0){
              /*Do the hard SPH interpolation*/
-             SPH_interpolate(field, comp, FIELD_DIMS, Pos, hsml, Mass, NULL, Npart, 1);
+             if(SPH_interpolate(field, comp, FIELD_DIMS, Pos, hsml, Mass, NULL, Npart, 1))
+                 exit(1);
              /*Free the particle list once we don't need it*/
              free(Pos);
              free(Mass);
