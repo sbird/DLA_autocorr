@@ -147,7 +147,9 @@ int main(int argc, char* argv[]){
           std::cerr<<"Error initialising fftw threads\n";
   		  return 0;
   }
-  fftw_plan_with_nthreads(std::max(omp_get_num_procs(),6));
+  int threads = std::min(omp_get_num_procs(),6);
+  omp_set_num_threads(threads);
+  fftw_plan_with_nthreads(threads);
   pl=fftw_plan_dft_r2c_3d(FIELD_DIMS,FIELD_DIMS,FIELD_DIMS,&field[0],outfield, FFTW_ESTIMATE);
   //Allocate memory for output
   power=(double *) malloc(nrbins*sizeof(double));
