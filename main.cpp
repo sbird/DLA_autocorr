@@ -18,7 +18,7 @@
 //For getopt
 #include <unistd.h>
 //For omp_get_num_procs
-#include <omp.h>
+// #include <omp.h>
 #include <stdlib.h>
 #include <hdf5.h>
 #include <string>
@@ -89,7 +89,7 @@ int main(int argc, char* argv[]){
   char c;
   int64_t Npart;
   float * Pos, *Mass, *hsml;
-  double box, atime, h100,redshift, Hz, omegab, omega0;
+  double box, atime, h100,redshift, omegab, omega0;
   fftw_plan pl;
   fftw_complex *outfield;
   while((c = getopt(argc, argv, "i:o:h")) !=-1){
@@ -113,7 +113,7 @@ int main(int argc, char* argv[]){
   std::string ffname = fname;
   unsigned i_fileno=0;
   int fileno=0;
-  if ( !fname.empty() && load_hdf5_header(fname.c_str(), &atime, &redshift, &Hz, &box, &h100, &omega0) == 0 ){
+  if ( !fname.empty() && load_hdf5_header(fname.c_str(), &atime, &redshift, &box, &h100, &omega0) == 0 ){
           /*See if we have been handed the first file of a set:
            * our method for dealing with this closely mirrors
            * HDF5s family mode, but we cannot use this, because
@@ -144,10 +144,10 @@ int main(int argc, char* argv[]){
   //Set up FFTW
   outfield=(fftw_complex *) &field[0];
   if(!fftw_init_threads()){
-  		  fprintf(stderr,"Error initialising fftw threads\n");
+          std::cerr<<"Error initialising fftw threads\n";
   		  return 0;
   }
-  fftw_plan_with_nthreads(omp_get_num_procs());
+  fftw_plan_with_nthreads(4);//omp_get_num_procs());
   pl=fftw_plan_dft_r2c_3d(FIELD_DIMS,FIELD_DIMS,FIELD_DIMS,&field[0],outfield, FFTW_ESTIMATE);
   //Allocate memory for output
   power=(double *) malloc(nrbins*sizeof(double));
@@ -165,7 +165,7 @@ int main(int argc, char* argv[]){
           /*If we ran out of files, we're done*/
           if(!(file_readable(ffname.c_str()) && H5Fis_hdf5(ffname.c_str()) > 0))
                   break;
-          Npart=load_hdf5_snapshot(ffname.c_str(), &omegab,fileno, h100, redshift, &Pos, &Mass, &hsml);
+          Npart=load_hdf5_snapshot(ffname.c_str(), &omegab,fileno, h100, redshift, omega0,&Pos, &Mass, &hsml);
           if(Npart > 0){
              /*Do the hard SPH interpolation*/
              if(SPH_interpolate(field, comp, FIELD_DIMS, Pos, hsml, Mass, NULL, Npart, 1))
@@ -202,7 +202,7 @@ int main(int argc, char* argv[]){
   }
   file << indir <<std::endl;
   //z a h box H(z) Omega_0 Omega_b
-  file << redshift << " " << atime << " " << box << " " << Hz << " " << omega0 << " " << omegab << std::endl;
+  file << redshift << " " << atime << " " << box << " " << omega0 << " " << omegab << std::endl;
   file << "==" <<std::endl;
   file << total <<std::endl;
   file << "==" <<std::endl;

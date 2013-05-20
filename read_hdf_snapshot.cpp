@@ -1,6 +1,5 @@
-#include <hdf5.h>
+#include <H5Cpp.h>
 #include <cassert>
-#include <hdf5_hl.h>
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
@@ -32,86 +31,51 @@ double rah_neut_frac(double dens, int redshift)
 }
 
 /*Routine that is a wrapper around HDF5's dataset access routines to do error checking. Returns the length on success, 0 on failure.*/
-hsize_t get_single_dataset(const char *name, float * data_ptr,  hsize_t data_length, hid_t * hdf_group,int fileno){
-          int rank;
-          hsize_t vlength;
-          size_t type_size;
-          H5T_class_t class_id;
-          if (H5LTget_dataset_ndims(*hdf_group, name, &rank) < 0 || rank != 1){
-             fprintf(stderr, "File %d: Rank of %s is %d !=1\n",fileno,name, rank);
-             return 0;
-          }
-          H5LTget_dataset_info(*hdf_group, name, &vlength, &class_id, &type_size);
-          if(type_size != 4 || class_id != H5T_FLOAT  || vlength > data_length || H5LTread_dataset_float(*hdf_group, name, data_ptr) < 0 ){
-              fprintf(stderr, "File %d: Failed reading %s (%lu)\n",fileno,name, (uint64_t)vlength);
-              return 0;
-          }
-          return vlength;
-}
-
-/*A similar wrapper around HDF5's dataset access routines to do error checking. Returns the length on success, 0 on failure.*/
-hsize_t get_triple_dataset(const char *name, float * data_ptr, hsize_t data_length, hid_t * hdf_group,int fileno){
-          int rank;
-          hsize_t vlength[2];
-          size_t type_size;
-          H5T_class_t class_id;
-          if (H5LTget_dataset_ndims(*hdf_group, name, &rank) < 0 || rank != 2){
-             fprintf(stderr, "File %d: Rank of %s is %d !=2\n",fileno,name, rank);
-             return 0;
-          }
-          H5LTget_dataset_info(*hdf_group, name, &vlength[0], &class_id, &type_size);
-          if(type_size != 4 || class_id != H5T_FLOAT || vlength[1] != 3 || vlength[0] > data_length || H5LTread_dataset_float(*hdf_group, name, data_ptr) < 0 ){
-              fprintf(stderr, "File %d: Failed reading %s (%lu)\n",fileno,name, (uint64_t)vlength[0]);
-              return 0;
-          }
-          return vlength[0];
+hsize_t get_single_dataset(const char *name, float * data_ptr,  hsize_t data_length, H5::Group * hdf_group,int fileno){
+    H5::DataSet dataset = hdf_group->openDataSet(name);
+    if(dataset.getTypeClass() != H5T_NATIVE_FLOAT)
+          return 0;
+    H5::DataSpace dataspace = dataset.getSpace();
+    int rank = dataspace.getSimpleExtentNdims();
+    if (rank > 2){
+       fprintf(stderr, "File %d: Rank of %s is %d !=2\n",fileno,name, rank);
+       return 0;
+    }
+    hsize_t vlength[2];
+    rank = dataspace.getSimpleExtentDims(&vlength[0]);
+    if( (rank > 1 && vlength[1] != 3) || vlength[0] > data_length) {
+        fprintf(stderr, "File %d: Bad array shape %s (%lu)\n",fileno,name, (uint64_t)vlength[0]);
+        return 0;
+    }
+    dataset.read(data_ptr, H5T_NATIVE_FLOAT);
+    return vlength[0];
 }
 
 /* this routine loads header data from the first file of an HDF5 snapshot.*/
-int load_hdf5_header(const char *ffname, double  *atime, double *redshift, double * Hz, double *box100, double *h100, double *Omega0)
+int load_hdf5_header(const char *ffname, double  *atime, double *redshift, double *box100, double *h100, double *Omega0)
 {
   int i;
   int npart[N_TYPE];
   double mass[N_TYPE];
-  int flag_cooling;
   int64_t npart_all[N_TYPE];
   double OmegaLambda;
-  hid_t hdf_group,hdf_file;
-  hdf_file=H5Fopen(ffname,H5F_ACC_RDONLY,H5P_DEFAULT);
-  if(hdf_file < 0){
-        return -1;
-  }
-  if ( (hdf_group=H5Gopen(hdf_file,"/Header",H5P_DEFAULT)) < 0) {
-        H5Fclose(hdf_file);
-        return -1;
-  }
+  H5::H5File hdf_file(ffname,H5F_ACC_RDONLY);
+  H5::Group hdf_group(hdf_file.createGroup("/Header"));
   /* Read some header functions */
-  
-  if(H5LTget_attribute_double(hdf_group,".","Time",atime) ||
-     H5LTget_attribute_double(hdf_group,".","Redshift", redshift) ||
-     H5LTget_attribute_double(hdf_group,".","BoxSize", box100) ||
-     H5LTget_attribute_double(hdf_group,".","HubbleParam", h100) ||
-     H5LTget_attribute_double(hdf_group,".","Omega0", Omega0) ||
-     H5LTget_attribute_double(hdf_group,".","OmegaLambda", &OmegaLambda) ||
-     H5LTget_attribute_int(hdf_group,".","Flag_Cooling",&flag_cooling)){
-          fprintf(stderr,"Failed to read some header value\n");
-      H5Gclose(hdf_group);
-      H5Fclose(hdf_file);
-      return -1;
-  }
-  (*Hz)=100.0*(*h100) * sqrt(1.+*Omega0*(1./(*atime)-1.)+OmegaLambda*((pow(*atime,2)) -1.))/(*atime);
+  hdf_group.openAttribute("Time").read(H5T_NATIVE_DOUBLE,&atime); 
+  hdf_group.openAttribute("Redshift").read(H5T_NATIVE_DOUBLE,&redshift); 
+  hdf_group.openAttribute("BoxSize").read(H5T_NATIVE_DOUBLE,&box100); 
+  hdf_group.openAttribute("HubbleParam").read(H5T_NATIVE_DOUBLE,&h100); 
+  hdf_group.openAttribute("Omega0").read(H5T_NATIVE_DOUBLE,&Omega0); 
+  hdf_group.openAttribute("OmegaLambda").read(H5T_NATIVE_INT,&OmegaLambda); 
   /*Get the total number of particles*/
-  H5LTget_attribute(hdf_group,".","NumPart_Total",H5T_NATIVE_INT, &npart);
+  hdf_group.openAttribute("NumPart_Total").read(H5T_NATIVE_INT,&npart); 
   for(i = 0; i< N_TYPE; i++)
           npart_all[i]=npart[i];
-  H5LTget_attribute(hdf_group,".","NumPart_Total_HighWord",H5T_NATIVE_INT, &npart);
+  hdf_group.openAttribute("NumPart_Total_HighWord").read(H5T_NATIVE_INT,&npart); 
   for(i = 0; i< N_TYPE; i++)
           npart_all[i]+=(1L<<32)*npart[i];
-  H5LTget_attribute(hdf_group,".","MassTable",H5T_NATIVE_DOUBLE, mass);
-  
-  /*Close header*/
-  H5Gclose(hdf_group);
-  H5Fclose(hdf_file);
+  hdf_group.openAttribute("MassTable").read(H5T_NATIVE_DOUBLE,&npart);
   
   if(npart_all[PARTTYPE] <=0)
           return -1;
@@ -125,31 +89,21 @@ int load_hdf5_header(const char *ffname, double  *atime, double *redshift, doubl
   
 /* This routine loads particle data from a single HDF5 snapshot file.
  * A snapshot may be distributed into multiple files. */
-int load_hdf5_snapshot(const char *ffname, double *omegab, int fileno, double h100, double redshift, float **Pos_out, float **Mass_out, float **h_out)
+int load_hdf5_snapshot(const char *ffname, double *omegab, int fileno, double h100, double redshift,double Omega0, float **Pos_out, float **Mass_out, float **h_out)
 {
   size_t i;
   int npart[N_TYPE];
   double mass[N_TYPE];
   char name[16];
-  double Omega0;
-  hid_t hdf_group,hdf_file;
   hsize_t length;
-  hdf_file=H5Fopen(ffname,H5F_ACC_RDONLY,H5P_DEFAULT);
-  if(hdf_file < 0){
-        return -1;
+  H5::H5File hdf_file(ffname,H5F_ACC_RDONLY);
+
+  {
+    H5::Group hdf_group(hdf_file.createGroup("/Header"));
+    hdf_group.openAttribute("MassTable").read(H5T_NATIVE_DOUBLE,&mass);
+    hdf_group.openAttribute("NumPart_ThisFile").read(H5T_NATIVE_INT,&npart);
   }
-  if ( (hdf_group=H5Gopen(hdf_file,"/Header",H5P_DEFAULT)) < 0) {
-        H5Fclose(hdf_file);
-        return -1;
-  }
-  if( H5LTget_attribute(hdf_group,".","NumPart_ThisFile",H5T_NATIVE_INT, &npart) ||
-      H5LTget_attribute_double(hdf_group,".","Omega0", &Omega0) ||
-      H5LTget_attribute(hdf_group,".","MassTable",H5T_NATIVE_DOUBLE, mass)) {
-      fprintf(stderr,"Failed to read some header value\n");
-      H5Gclose(hdf_group);
-      H5Fclose(hdf_file);
-      return -1;
-  }
+
   const int np = npart[PARTTYPE];
   float * Pos=(float *)malloc(np*3*sizeof(float));
   float * Mass=(float *) malloc(np*sizeof(float));
@@ -161,17 +115,12 @@ int load_hdf5_snapshot(const char *ffname, double *omegab, int fileno, double h1
   assert(fraction);
   assert(density);
   assert(h);
-  H5Gclose(hdf_group);
   /*Open particle data*/
   snprintf(name,16,"/PartType%d",PARTTYPE);
 
-  if ( (hdf_group=H5Gopen(hdf_file,name,H5P_DEFAULT)) < 0) {
-        H5Fclose(hdf_file);
-        return -1;
-  }
-
+  H5::Group hdf_group(hdf_file.createGroup(name));
   /* Read position and velocity*/
-  length = get_triple_dataset("Coordinates",Pos,npart[PARTTYPE],&hdf_group,fileno);
+  length = get_single_dataset("Coordinates",Pos,npart[PARTTYPE],&hdf_group,fileno);
   if(length == 0)
           goto exit;
   printf("Reading File %d (%lu particles)\n", fileno,(uint64_t)length);
@@ -200,34 +149,32 @@ int load_hdf5_snapshot(const char *ffname, double *omegab, int fileno, double h1
       Mass[i]*=fraction[i]*XH;
   }
   /*Are we arepo? If we are we should have this array.*/
-  if ( H5LTfind_dataset(hdf_group, "Volume")){
-      /*Read in density*/
+  try {  // to determine if the dataset exists in the group
+      H5::DataSet( hdf_group.openDataSet( "Volume" ));
       if (length != get_single_dataset("Volume",h,length,&hdf_group,fileno))
-              goto exit;
+          goto exit;
       /*Find cell length from volume, assuming a sphere.
        * Note that 4 pi/3**1/3 ~ 1.4, so the geometric 
        * factors nearly cancel and the cell is almost a cube.*/
       for(i=0;i<length;i++)
               h[i] = pow(3*h[i]/4/M_PI,0.33333333);
-   }
-  else{
+  }
+  catch( H5::GroupIException not_found_error ) {
       /* The smoothing length for gadget*/
       if (length != get_single_dataset("SmoothingLength",h,length,&hdf_group,fileno))
           goto exit;
-      }
-exit:
-  H5Gclose(hdf_group);
-  H5Fclose(hdf_file);
+  }
   if(fileno < 1){
         printf("\nP[%d].Pos = [%g %g %g]\n", 0, Pos[0], Pos[1],Pos[2]);
         printf("P[-1].Mass = %e\n", Mass[0]);
         printf("P[-1].NH0 = %e\n", fraction[length-1]);
         printf("P[-1].h = %f\n", h[length-1]);
   }
-  free(fraction);
-  free(density);
+exit:
   *Pos_out = Pos;
   *Mass_out = Mass;
   *h_out = h;
+  free(fraction);
+  free(density);
   return length;
 }
