@@ -2,6 +2,10 @@
 #include <algorithm>
 #include <stdio.h>
 
+#include "moments.h"
+
+//Do allocate extra memory for FFTW
+#define EXTRA 1
 
 /*Compute the SPH weighting for this cell.
  * rr is the smoothing length, r0 is the distance of the cell from the center*/
@@ -27,7 +31,7 @@ double compute_sph_cell_weight(double rr, double r0)
  *comp the compensation array, input the value to add this time.*/
 inline void KahanSum(double* sum, double* comp, const double input, const int xoff,const int yoff, const int zoff, const int nx)
 {
-  const int off = nx*nx*xoff+nx*yoff+zoff;
+  const int off = (xoff*nx+yoff)*(2*(nx/2+EXTRA))+zoff;
   const double yy = input - *(comp+off);
   const double temp = *(sum+off)+yy;     //Alas, sum is big, y small, so low-order digits of y are lost.
   *(comp+off) = (temp - *(sum+off)) -yy; //(t - sum) recovers the high-order part of y; subtracting y recovers -(low part of y)

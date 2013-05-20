@@ -14,7 +14,6 @@
 //proton mass in g
 #define protonmass 1.66053886e-24
 
-
 void multiply_by_tophat(double * field, int size, double thresh);
 double find_total(double * field, int size);
 std::map<double, int> pdf(double * field, int size, double xmin, double xmax, double xstep);

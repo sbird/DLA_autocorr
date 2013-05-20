@@ -129,7 +129,7 @@ int main(int argc, char* argv[]){
   //Memory for the field
   /* Allocating a bit more memory allows us to do in-place transforms.*/
   field=(double *)fftw_malloc(2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1)*sizeof(double));
-  //For the compensation array
+  //For the compensation array: extra mem not necessary but simplifies things
   comp=(double *)fftw_malloc(2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1)*sizeof(double));
   if( !comp || !field ) {
   	fprintf(stderr,"Error allocating memory for field\n");
