@@ -22,6 +22,8 @@
 #include <hdf5.h>
 #include <string>
 #include <sstream>
+#include <iostream>
+#include <fstream>
 #include <fftw3.h>
 
 void help()
@@ -86,7 +88,7 @@ int main(int argc, char* argv[]){
   char c;
   int64_t Npart;
   float * Pos, *Mass, *hsml;
-  double box, atime, h100,redshift, Hz, omegab;
+  double box, atime, h100,redshift, Hz, omegab, omega0;
   fftw_plan pl;
   fftw_complex *outfield;
   while((c = getopt(argc, argv, "i:o:h")) !=-1){
@@ -110,7 +112,7 @@ int main(int argc, char* argv[]){
   std::string ffname = fname;
   unsigned i_fileno=0;
   int fileno=0;
-  if ( !fname.empty() && load_hdf5_header(fname.c_str(), &atime, &redshift, &Hz, &box, &h100) == 0 ){
+  if ( !fname.empty() && load_hdf5_header(fname.c_str(), &atime, &redshift, &Hz, &box, &h100, &omega0) == 0 ){
           /*See if we have been handed the first file of a set:
            * our method for dealing with this closely mirrors
            * HDF5s family mode, but we cannot use this, because
@@ -186,11 +188,31 @@ int main(int argc, char* argv[]){
   double total = find_total(field, size);
   std::map<double, int> hist = pdf(field, size, 17, 23, 0.2);
   /*Now make a power spectrum*/
+  discretize(field, size);
   powerspectrum(FIELD_DIMS,&pl,outfield,nrbins, power,count,keffs);
   filename=outdir;
-  filename+="/PK-0-"+indir.substr(last+1);
-  //print_pk(filename,nrbins,keffs,power,count);
-  //TODO: Do output
+  filename+="/DLA_autocorr_"+indir.substr(last+1);
+  std::ofstream file;
+  file.open(filename.c_str());
+  if(!file.is_open()){
+      std::cerr<<"Could not open "<<filename<<std::endl;
+      exit(1);
+  }
+  file << indir <<std::endl;
+  //z a h box H(z) Omega_0 Omega_b
+  file << redshift << " " << atime << " " << box << " " << Hz << " " << omega0 << " " << omegab << std::endl;
+  file << "==" <<std::endl;
+  file << total <<std::endl;
+  file << "==" <<std::endl;
+  for (std::map<double,int>::iterator it=hist.begin(); it!=hist.end(); ++it)
+    file << it->first << " " << it->second << std::endl;
+  file << "==" <<std::endl;
+  for(int i=0;i<nrbins;i++)
+  {
+    if(count[i])
+      file<<keffs[i]<<" "<<power[i]<<" "<<count[i]<<std::endl;
+  }
+  file.close();
   //Free memory
   free(power);
   free(count);

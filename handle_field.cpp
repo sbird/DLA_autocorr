@@ -14,6 +14,17 @@ void multiply_by_tophat(double * field, int size, double thresh)
     }
 }
 
+/* Make all positive array values 1*/
+void discretize(double * field, int size)
+{
+    #pragma omp parallel for
+    for(int i=0; i< size; i++)
+    {
+        if(field[i] > 0)
+            field[i] = 1;
+    }
+}
+
 /* Find the total value of all elements of a field*/
 double find_total(double * field, int size)
 {

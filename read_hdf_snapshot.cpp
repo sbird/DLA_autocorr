@@ -67,14 +67,14 @@ hsize_t get_triple_dataset(const char *name, float * data_ptr, hsize_t data_leng
 }
 
 /* this routine loads header data from the first file of an HDF5 snapshot.*/
-int load_hdf5_header(const char *ffname, double  *atime, double *redshift, double * Hz, double *box100, double *h100)
+int load_hdf5_header(const char *ffname, double  *atime, double *redshift, double * Hz, double *box100, double *h100, double *Omega0)
 {
   int i;
   int npart[N_TYPE];
   double mass[N_TYPE];
   int flag_cooling;
   int64_t npart_all[N_TYPE];
-  double Omega0, OmegaLambda;
+  double OmegaLambda;
   hid_t hdf_group,hdf_file;
   hdf_file=H5Fopen(ffname,H5F_ACC_RDONLY,H5P_DEFAULT);
   if(hdf_file < 0){
@@ -90,7 +90,7 @@ int load_hdf5_header(const char *ffname, double  *atime, double *redshift, doubl
      H5LTget_attribute_double(hdf_group,".","Redshift", redshift) ||
      H5LTget_attribute_double(hdf_group,".","BoxSize", box100) ||
      H5LTget_attribute_double(hdf_group,".","HubbleParam", h100) ||
-     H5LTget_attribute_double(hdf_group,".","Omega0", &Omega0) ||
+     H5LTget_attribute_double(hdf_group,".","Omega0", Omega0) ||
      H5LTget_attribute_double(hdf_group,".","OmegaLambda", &OmegaLambda) ||
      H5LTget_attribute_int(hdf_group,".","Flag_Cooling",&flag_cooling)){
           fprintf(stderr,"Failed to read some header value\n");
@@ -98,7 +98,7 @@ int load_hdf5_header(const char *ffname, double  *atime, double *redshift, doubl
       H5Fclose(hdf_file);
       return -1;
   }
-  (*Hz)=100.0*(*h100) * sqrt(1.+Omega0*(1./(*atime)-1.)+OmegaLambda*((pow(*atime,2)) -1.))/(*atime);
+  (*Hz)=100.0*(*h100) * sqrt(1.+*Omega0*(1./(*atime)-1.)+OmegaLambda*((pow(*atime,2)) -1.))/(*atime);
   /*Get the total number of particles*/
   H5LTget_attribute(hdf_group,".","NumPart_Total",H5T_NATIVE_INT, &npart);
   for(i = 0; i< N_TYPE; i++)
@@ -116,7 +116,7 @@ int load_hdf5_header(const char *ffname, double  *atime, double *redshift, doubl
           return -1;
   printf("NumPart=[%ld,%ld,%ld,%ld,%ld,%ld], ",npart_all[0],npart_all[1],npart_all[2],npart_all[3],npart_all[4],npart_all[5]);
   printf("Masses=[%g %g %g %g %g %g], ",mass[0],mass[1],mass[2],mass[3],mass[4],mass[5]);
-  printf("Redshift=%g, Ω_M=%g Ω_L=%g\n",(*redshift),Omega0,OmegaLambda);
+  printf("Redshift=%g, Ω_M=%g Ω_L=%g\n",(*redshift),*Omega0,OmegaLambda);
   printf("Expansion factor = %f\n",(*atime));
   printf("Hubble = %g Box=%g \n",(*h100),(*box100));
   return 0;
