@@ -135,6 +135,9 @@ int main(int argc, char* argv[]){
   	fprintf(stderr,"Error allocating memory for field\n");
   	return 1;
   }
+  //Initialise
+  for(int i=0; i< 2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1); i++)
+      field[i] = comp[i] = 0;
   const int64_t size = FIELD_DIMS*FIELD_DIMS*FIELD_DIMS;
   string filename=outdir;
   size_t last=indir.find_last_of("/\\");

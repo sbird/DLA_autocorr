@@ -85,8 +85,8 @@ int SPH_interpolate(double * field, double * comp, const int nx, float *pos, flo
                 continue;
         }
         /*Array for storing cell weights*/
-        double sph_w[upgx[2]-lowgx[2]+1][upgx[1]-lowgx[1]+1][upgx[0]-lowgx[0]+1];
-
+//         double sph_w[upgx[2]-lowgx[2]+1][upgx[1]-lowgx[1]+1][upgx[0]-lowgx[0]+1];
+        double * sph_w = (double *) calloc((upgx[2]-lowgx[2]+1)*(upgx[1]-lowgx[1]+1)*(upgx[0]-lowgx[0]+1), sizeof(double));
         /*Total of cell weights*/
         double total=0;
         /* First compute the cell weights.
@@ -101,7 +101,7 @@ int SPH_interpolate(double * field, double * comp, const int nx, float *pos, flo
         for(int gz=lowgx[2];gz<=upgx[2];gz++)
             for(int gy=lowgx[1];gy<=upgx[1];gy++)
                 for(int gx=lowgx[0];gx<=upgx[0];gx++){
-                    sph_w[gz-lowgx[2]][gy-lowgx[1]][gx-lowgx[0]]=0;
+                    double * cur_ptr = sph_w+(upgx[1]-lowgx[1]+1)*(upgx[0]-lowgx[0]+1)*(gz-lowgx[2])+(upgx[0]-lowgx[0]+1)*(gy-lowgx[1])+gx-lowgx[0];
                     for(int iz=0; iz< nsub; iz++)
                     for(int iy=0; iy< nsub; iy++)
                     for(int ix=0; ix< nsub; ix++){
@@ -109,13 +109,12 @@ int SPH_interpolate(double * field, double * comp, const int nx, float *pos, flo
                         double yy = gy-pp[1]+subs[iy];
                         double zz = gz-pp[2]+subs[iz];
                         double r0 = sqrt(xx*xx+yy*yy+zz*zz);
-                        sph_w[gz-lowgx[2]][gy-lowgx[1]][gx-lowgx[0]]+=compute_sph_cell_weight(rr,r0)/nsub/nsub;
+                        *cur_ptr+=compute_sph_cell_weight(rr,r0)/nsub/nsub;
                     }
-                    total+=sph_w[gz-lowgx[2]][gy-lowgx[1]][gx-lowgx[0]];
+                    total+=*cur_ptr;
                 }
         if(total == 0){
            fprintf(stderr,"Massless particle detected! rr=%g gz=%d gy=%d gx=%d nsub = %d pp= %g %g \n",rr,upgx[2]-lowgx[2], upgx[1]-lowgx[1],upgx[0]-lowgx[0], nsub,-pp[0]+lowgx[0],-pp[1]+lowgx[1]);
-            return 1;
         }
         //Deal with cells that have wrapped around the edges of the grid
         if(periodic){
@@ -127,7 +126,8 @@ int SPH_interpolate(double * field, double * comp, const int nx, float *pos, flo
                     int gym = (gy + (nx-1)) % (nx-1);
                     for(int gx=lowgx[0];gx<=upgx[0];gx++){
                         int gxm = (gx + (nx-1)) % (nx-1);
-                        KahanSum(field, comp, val*sph_w[gz-lowgx[2]][gy-lowgx[1]][gx-lowgx[0]]/total/weight,gxm,gym,gzm,nx);
+                        double * cur_ptr = sph_w+(upgx[1]-lowgx[1]+1)*(upgx[0]-lowgx[0]+1)*(gz-lowgx[2])+(upgx[0]-lowgx[0]+1)*(gy-lowgx[1])+gx-lowgx[0];
+                        KahanSum(field, comp, *cur_ptr*val/total/weight,gxm,gym,gzm,nx);
                     }
                 }
             }
@@ -138,9 +138,11 @@ int SPH_interpolate(double * field, double * comp, const int nx, float *pos, flo
             for(int gz=std::max(lowgx[2],0);gz<=std::min(upgx[2],nx-1);gz++)
                 for(int gy=std::max(lowgx[1],0);gy<=std::min(upgx[1],nx-1);gy++)
                     for(int gx=std::max(lowgx[0],0);gx<=std::min(upgx[0],nx-1);gx++){
-                        KahanSum(field, comp, val*sph_w[gz-lowgx[2]][gy-lowgx[1]][gx-lowgx[0]]/total/weight,gx,gy,gz,nx);
+                        double * cur_ptr = sph_w+(upgx[1]-lowgx[1]+1)*(upgx[0]-lowgx[0]+1)*(gz-lowgx[2])+(upgx[0]-lowgx[0]+1)*(gy-lowgx[1])+gx-lowgx[0];
+                        KahanSum(field, comp, *cur_ptr*val/total/weight,gx,gy,gz,nx);
                     }
         }
+        free(sph_w);
     }
     return 0;
 }
