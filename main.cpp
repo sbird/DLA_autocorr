@@ -18,7 +18,7 @@
 //For getopt
 #include <unistd.h>
 //For omp_get_num_procs
-// #include <omp.h>
+#include <omp.h>
 #include <stdlib.h>
 #include <hdf5.h>
 #include <string>
@@ -147,7 +147,7 @@ int main(int argc, char* argv[]){
           std::cerr<<"Error initialising fftw threads\n";
   		  return 0;
   }
-  fftw_plan_with_nthreads(4);//omp_get_num_procs());
+  fftw_plan_with_nthreads(std::max(omp_get_num_procs(),6));
   pl=fftw_plan_dft_r2c_3d(FIELD_DIMS,FIELD_DIMS,FIELD_DIMS,&field[0],outfield, FFTW_ESTIMATE);
   //Allocate memory for output
   power=(double *) malloc(nrbins*sizeof(double));
@@ -166,7 +166,7 @@ int main(int argc, char* argv[]){
           if(!(file_readable(ffname.c_str()) && H5Fis_hdf5(ffname.c_str()) > 0))
                   break;
           Npart=snap.load_hdf5_snapshot(ffname.c_str(), fileno,&Pos, &Mass, &hsml);
-          std::cout<< "Done reading, now interpolating"<<std::endl;
+          std::cout<< "Read " <<Npart<<", now interpolating"<<std::endl;
           if(Npart > 0){
              /*Do the hard SPH interpolation*/
              if(SPH_interpolate(field, comp, FIELD_DIMS, Pos, hsml, Mass, NULL, Npart, 1))

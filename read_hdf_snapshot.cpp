@@ -28,8 +28,6 @@ double rah_neut_frac(double dens, int redshift)
 /*Routine that is a wrapper around HDF5's dataset access routines to do error checking. Returns the length on success, 0 on failure.*/
 hsize_t get_single_dataset(const char *name, float * data_ptr,  hsize_t data_length, H5::Group * hdf_group,int fileno){
     H5::DataSet dataset = hdf_group->openDataSet(name);
-    if(dataset.getTypeClass() != H5T_NATIVE_FLOAT)
-          return 0;
     H5::DataSpace dataspace = dataset.getSpace();
     int rank = dataspace.getSimpleExtentNdims();
     if (rank > 2){
@@ -54,7 +52,7 @@ H5Snap::H5Snap(const char *ffname)
   H5::H5File hdf_file(ffname,H5F_ACC_RDONLY);
   H5::Group hdf_group(hdf_file.openGroup("/Header"));
   /* Read some header functions */
-  hdf_group.openAttribute("Time").read(H6::PredType::NATIVE_DOUBLE,&atime);
+  hdf_group.openAttribute("Time").read(H5::PredType::NATIVE_DOUBLE,&atime);
   hdf_group.openAttribute("Redshift").read(H5::PredType::NATIVE_DOUBLE,&redshift);
   hdf_group.openAttribute("BoxSize").read(H5::PredType::NATIVE_DOUBLE,&box100);
   hdf_group.openAttribute("HubbleParam").read(H5::PredType::NATIVE_DOUBLE,&h100);
