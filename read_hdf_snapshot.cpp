@@ -42,7 +42,7 @@ hsize_t get_single_dataset(const char *name, float * data_ptr,  hsize_t data_len
         fprintf(stderr, "File %d: Bad array shape %s (%lu)\n",fileno,name, (uint64_t)vlength[0]);
         return 0;
     }
-    dataset.read(data_ptr, H5T_NATIVE_FLOAT);
+    dataset.read(data_ptr, H5::PredType::NATIVE_FLOAT);
     return vlength[0];
 }
 
@@ -54,19 +54,19 @@ H5Snap::H5Snap(const char *ffname)
   H5::H5File hdf_file(ffname,H5F_ACC_RDONLY);
   H5::Group hdf_group(hdf_file.openGroup("/Header"));
   /* Read some header functions */
-  hdf_group.openAttribute("Time").read(H5T_NATIVE_DOUBLE,&atime); 
-  hdf_group.openAttribute("Redshift").read(H5T_NATIVE_DOUBLE,&redshift); 
-  hdf_group.openAttribute("BoxSize").read(H5T_NATIVE_DOUBLE,&box100); 
-  hdf_group.openAttribute("HubbleParam").read(H5T_NATIVE_DOUBLE,&h100); 
-  hdf_group.openAttribute("Omega0").read(H5T_NATIVE_DOUBLE,&omega0); 
+  hdf_group.openAttribute("Time").read(H6::PredType::NATIVE_DOUBLE,&atime);
+  hdf_group.openAttribute("Redshift").read(H5::PredType::NATIVE_DOUBLE,&redshift);
+  hdf_group.openAttribute("BoxSize").read(H5::PredType::NATIVE_DOUBLE,&box100);
+  hdf_group.openAttribute("HubbleParam").read(H5::PredType::NATIVE_DOUBLE,&h100);
+  hdf_group.openAttribute("Omega0").read(H5::PredType::NATIVE_DOUBLE,&omega0);
   /*Get the total number of particles*/
-  hdf_group.openAttribute("NumPart_Total").read(H5T_NATIVE_INT,&npart); 
+  hdf_group.openAttribute("NumPart_Total").read(H5::PredType::NATIVE_INT,&npart);
   for(int i = 0; i< N_TYPE; i++)
           npart_all[i]=npart[i];
-  hdf_group.openAttribute("NumPart_Total_HighWord").read(H5T_NATIVE_INT,&npart); 
+  hdf_group.openAttribute("NumPart_Total_HighWord").read(H5::PredType::NATIVE_INT,&npart);
   for(int i = 0; i< N_TYPE; i++)
           npart_all[i]+=(1L<<32)*npart[i];
-  hdf_group.openAttribute("MassTable").read(H5T_NATIVE_DOUBLE,&mass);
+  hdf_group.openAttribute("MassTable").read(H5::PredType::NATIVE_DOUBLE,&mass);
   
   omegab = mass[0]/(mass[0]+mass[1])*omega0;
   printf("NumPart=[%ld,%ld,%ld,%ld,%ld,%ld], ",npart_all[0],npart_all[1],npart_all[2],npart_all[3],npart_all[4],npart_all[5]);
@@ -88,7 +88,7 @@ int H5Snap::load_hdf5_snapshot(const char *ffname, int fileno, float **Pos_out, 
 
   {
     H5::Group hdf_group(hdf_file.openGroup("/Header"));
-    hdf_group.openAttribute("NumPart_ThisFile").read(H5T_NATIVE_INT,&npart);
+    hdf_group.openAttribute("NumPart_ThisFile").read(H5::PredType::NATIVE_INT,&npart);
   }
 
   const int np = npart[PARTTYPE];
