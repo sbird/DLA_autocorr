@@ -2,6 +2,7 @@
 #define _MOMENTS_H
 
 #include <map>
+#include <fftw3.h>
 
 #define XH 0.76
 //Internal gadget mass unit: 1e10 M_sun/h in g/h
@@ -20,4 +21,14 @@ std::map<double, int> pdf(double * field, int size, double xmin, double xmax, do
 
 int load_hdf5_header(const char *ffname, double  *atime, double *redshift, double * Hz, double *box100, double *h100);
 int load_hdf5_snapshot(const char *ffname, double *omegab, int fileno, double h100, double redshift, float *Pos, float * Mass, float * h);
+
+int SPH_interpolate(double * field, double * comp, const int nx, float *pos, float *radii, float *value, float *weights, const int nval, const int periodic);
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+int powerspectrum(int dims, fftw_plan* pl,fftw_complex *outfield, int nrbins, double *power, int *count,double *keffs);
+#ifdef __cplusplus
+}
+#endif
 #endif

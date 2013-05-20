@@ -1,6 +1,3 @@
-#Python include path
-PYINC=-I/usr/include/python2.6 -I/usr/include/python2.6
-
 ifeq ($(CC),cc)
   ICC:=$(shell which icc --tty-only 2>&1)
   #Can we find icc?
@@ -19,7 +16,7 @@ endif
 
 #Are we using gcc or icc?
 ifeq (icc,$(findstring icc,${CC}))
-  CFLAGS +=-O2 -g -c -w1 -openmp -fpic -std=gnu99
+  CFLAGS +=-O2 -g -c -w1 -openmp -fpic
   LINK +=${CXX} -openmp
 else
   CFLAGS +=-O3 -g -c -Wall -fopenmp -fPIC
@@ -34,10 +31,10 @@ clean:
 	rm *.o moments
 
 %.o: %.c
-	$(CC) $(CFLAGS) -fPIC -fno-strict-aliasing -DNDEBUG $(PYINC) -c $^ -o $@
+	$(CC) $(CFLAGS) -std=gnu99 -c $^ -o $@
 
 %.o: %.cpp
 	$(CC) $(CFLAGS) -c $^ -o $@
 
-moments: main.o read_hdf_snapshot.o SPH_fieldize.o handle_field.o
+moments: main.o read_hdf_snapshot.o SPH_fieldize.o handle_field.o powerspectrum.o
 	$(LINK) $(LFLAGS) -lfftw3 -lfftw3_threads -lhdf5 -lhdf5_hl $^ -o $@

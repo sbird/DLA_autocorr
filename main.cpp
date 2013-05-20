@@ -79,8 +79,8 @@ using namespace std;
  * to a file, and then frees the memory*/
 int main(int argc, char* argv[]){
   int nrbins;
-  float *power, *keffs; 
-  double *field;
+  double *power, *keffs;
+  double *field, *comp;
   int *count; 
   string indir(""),outdir("");
   char c;
@@ -128,7 +128,10 @@ int main(int argc, char* argv[]){
   nrbins=floor(sqrt(3)*((FIELD_DIMS+1.0)/2.0)+1);
   //Memory for the field
   /* Allocating a bit more memory allows us to do in-place transforms.*/
-  if(!(field=(double *)fftw_malloc(2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1)*sizeof(double)))){
+  field=(double *)fftw_malloc(2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1)*sizeof(double));
+  //For the compensation array
+  comp=(double *)fftw_malloc(2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1)*sizeof(double));
+  if( !comp || !field ) {
   	fprintf(stderr,"Error allocating memory for field\n");
   	return 1;
   }
@@ -144,9 +147,9 @@ int main(int argc, char* argv[]){
   fftw_plan_with_nthreads(omp_get_num_procs());
   pl=fftw_plan_dft_r2c_3d(FIELD_DIMS,FIELD_DIMS,FIELD_DIMS,&field[0],outfield, FFTW_ESTIMATE);
   //Allocate memory for output
-  power=(float *) malloc(nrbins*sizeof(float));
+  power=(double *) malloc(nrbins*sizeof(double));
   count=(int *) malloc(nrbins*sizeof(int));
-  keffs=(float *) malloc(nrbins*sizeof(float));
+  keffs=(double *) malloc(nrbins*sizeof(double));
   if(!power || !count || !keffs){
   	fprintf(stderr,"Error allocating memory for power spectrum.\n");
         return 1;
@@ -162,14 +165,11 @@ int main(int argc, char* argv[]){
           Npart=load_hdf5_snapshot(ffname.c_str(), &omegab,fileno, h100, redshift, Pos, Mass, hsml);
           if(Npart > 0){
              /*Do the hard SPH interpolation*/
-              //TODO: Write this
-             //SPH_Interpolation(rhoker_H,&H1, 1, NBINS, Npart, NumLos,box, los_table,sort_los_table, &P);
-          }
-          /*Free the particle list once we don't need it*/
-          if(Npart >= 0){
-            free(Pos);
-            free(Mass);
-            free(hsml);
+             SPH_interpolate(field, comp, FIELD_DIMS, Pos, hsml, Mass, NULL, Npart, 1);
+             /*Free the particle list once we don't need it*/
+             free(Pos);
+             free(Mass);
+             free(hsml);
           }
           fileno++;
           if(i_fileno && i_fileno != std::string::npos){
@@ -186,8 +186,7 @@ int main(int argc, char* argv[]){
   double total = find_total(field, size);
   std::map<double, int> hist = pdf(field, size, 17, 23, 0.2);
   /*Now make a power spectrum*/
-              //TODO: Write this
-  //powerspectrum(FIELD_DIMS,&pl,outfield,nrbins, power,count,keffs);
+  powerspectrum(FIELD_DIMS,&pl,outfield,nrbins, power,count,keffs);
   filename=outdir;
   filename+="/PK-0-"+indir.substr(last+1);
   //print_pk(filename,nrbins,keffs,power,count);
@@ -197,6 +196,7 @@ int main(int argc, char* argv[]){
   free(count);
   free(keffs);
   fftw_free(field);
+  fftw_free(comp);
   fftw_destroy_plan(pl);
   return 0;
 }
