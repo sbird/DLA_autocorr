@@ -52,7 +52,7 @@ H5Snap::H5Snap(const char *ffname)
   int npart[N_TYPE];
   int64_t npart_all[N_TYPE];
   H5::H5File hdf_file(ffname,H5F_ACC_RDONLY);
-  H5::Group hdf_group(hdf_file.createGroup("/Header"));
+  H5::Group hdf_group(hdf_file.openGroup("/Header"));
   /* Read some header functions */
   hdf_group.openAttribute("Time").read(H5T_NATIVE_DOUBLE,&atime); 
   hdf_group.openAttribute("Redshift").read(H5T_NATIVE_DOUBLE,&redshift); 
@@ -87,7 +87,7 @@ int H5Snap::load_hdf5_snapshot(const char *ffname, int fileno, float **Pos_out, 
   H5::H5File hdf_file(ffname,H5F_ACC_RDONLY);
 
   {
-    H5::Group hdf_group(hdf_file.createGroup("/Header"));
+    H5::Group hdf_group(hdf_file.openGroup("/Header"));
     hdf_group.openAttribute("NumPart_ThisFile").read(H5T_NATIVE_INT,&npart);
   }
 
@@ -105,7 +105,7 @@ int H5Snap::load_hdf5_snapshot(const char *ffname, int fileno, float **Pos_out, 
   /*Open particle data*/
   snprintf(name,16,"/PartType%d",PARTTYPE);
 
-  H5::Group hdf_group(hdf_file.createGroup(name));
+  H5::Group hdf_group(hdf_file.openGroup(name));
   /* Read position and velocity*/
   length = get_single_dataset("Coordinates",Pos,npart[PARTTYPE],&hdf_group,fileno);
   if(length == 0)
