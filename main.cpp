@@ -166,6 +166,7 @@ int main(int argc, char* argv[]){
           if(!(file_readable(ffname.c_str()) && H5Fis_hdf5(ffname.c_str()) > 0))
                   break;
           Npart=snap.load_hdf5_snapshot(ffname.c_str(), fileno,&Pos, &Mass, &hsml);
+          std::cout<< "Done reading, now interpolating"<<std::endl;
           if(Npart > 0){
              /*Do the hard SPH interpolation*/
              if(SPH_interpolate(field, comp, FIELD_DIMS, Pos, hsml, Mass, NULL, Npart, 1))
@@ -184,6 +185,7 @@ int main(int argc, char* argv[]){
           else
            break;
   }
+  std::cout<< "Done interpolating"<<std::endl;
   //Find totals and pdf
   //BE CAREFUL WITH FFTW!
   multiply_by_tophat(field, size, pow(10, 20.3));
