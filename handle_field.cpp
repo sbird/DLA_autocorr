@@ -45,7 +45,7 @@ std::map<double, int> pdf(double * field, int size, double xmin, double xmax, do
     //Initialise the key values
     for (double i = xmin; i < xmax; i+=xstep)
         hist[pow(10,i)] = 0;
-    hist[xmax] = 0;
+    hist[pow(10,xmax)] = 0;
     
     //Count values: note this means that the last entry will contain the 
     //no. of elements past the end

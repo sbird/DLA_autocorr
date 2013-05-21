@@ -74,6 +74,27 @@ int file_readable(const char * filename)
 
 using namespace std;
 
+void convert_units(double * field, int size, const double redshift, const double box, const double h100)
+{
+        const double UnitMassing = 1.989e43;
+        //Internal gadget length unit: 1 kpc/h in cm/h
+        const double UnitLengthincm=3.085678e21;
+        //in g
+        const double proton = 1.66053886e-24;
+        //From M_sun/h/(kpc/h)^3 to g/cm^3 (comoving)
+        //1 kpc/h in physical cm
+        const double rscale = UnitLengthincm/(1+redshift)/h100;
+        // 10^10 M_sun in g
+        const double mscale = UnitMassing/h100;
+        double conv = mscale/pow(rscale,3);
+        //To atoms / cm^3
+        conv/=proton;
+        //To atoms / cm^2
+        const double column = box/FIELD_DIMS*UnitLengthincm*(1+redshift)/h100;
+        conv*=column;
+        for(int i=0; i< size; i++)
+            field[i]*=conv;
+}
 /** \file 
  * File containing main() */
 
@@ -126,11 +147,12 @@ int main(int argc, char* argv[]){
 
   //Get the header and print out some useful things
   nrbins=floor(sqrt(3)*((FIELD_DIMS+1.0)/2.0)+1);
+  const size_t size = 2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1);
   //Memory for the field
   /* Allocating a bit more memory allows us to do in-place transforms.*/
-  field=(double *)fftw_malloc(2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1)*sizeof(double));
+  field=(double *)fftw_malloc(size*sizeof(double));
   //For the compensation array: extra mem not necessary but simplifies things
-  comp=(double *)fftw_malloc(2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1)*sizeof(double));
+  comp=(double *)fftw_malloc(size*sizeof(double));
   if( !comp || !field ) {
   	fprintf(stderr,"Error allocating memory for field\n");
   	return 1;
@@ -138,7 +160,6 @@ int main(int argc, char* argv[]){
   //Initialise
   for(int i=0; i< 2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1); i++)
       field[i] = comp[i] = 0;
-  const int64_t size = FIELD_DIMS*FIELD_DIMS*FIELD_DIMS;
   string filename=outdir;
   size_t last=indir.find_last_of("/\\");
   //Set up FFTW
@@ -168,7 +189,6 @@ int main(int argc, char* argv[]){
           if(!(file_readable(ffname.c_str()) && H5Fis_hdf5(ffname.c_str()) > 0))
                   break;
           Npart=snap.load_hdf5_snapshot(ffname.c_str(), fileno,&Pos, &Mass, &hsml);
-          std::cout<< "Read " <<Npart<<", now interpolating"<<std::endl;
           if(Npart > 0){
              /*Do the hard SPH interpolation*/
              if(SPH_interpolate(field, comp, FIELD_DIMS, Pos, hsml, Mass, NULL, snap.box100, Npart, 1))
@@ -187,11 +207,14 @@ int main(int argc, char* argv[]){
           else
            break;
   }
+  fftw_free(comp);
   std::cout<< "Done interpolating"<<std::endl;
   //Find totals and pdf
   //BE CAREFUL WITH FFTW!
+  convert_units(field, size, snap.redshift, snap.box100, snap.h100);
+  double total_HI = find_total(field, size);
   multiply_by_tophat(field, size, pow(10, 20.3));
-  double total = find_total(field, size);
+  double total_DLA = find_total(field, size);
   std::map<double, int> hist = pdf(field, size, 17, 23, 0.2);
   /*Now make a power spectrum*/
   discretize(field, size);
@@ -208,7 +231,7 @@ int main(int argc, char* argv[]){
   //z a h box H(z) Omega_0 Omega_b
   file << snap.redshift << " " << snap.atime <<" " << snap.h100 << " " << snap.box100 << " " << snap.omega0 << " " << snap.omegab << std::endl;
   file << "==" <<std::endl;
-  file << total <<std::endl;
+  file << total_HI << " " << total_DLA <<std::endl;
   file << "==" <<std::endl;
   for (std::map<double,int>::iterator it=hist.begin(); it!=hist.end(); ++it)
     file << it->first << " " << it->second << std::endl;
@@ -224,7 +247,6 @@ int main(int argc, char* argv[]){
   free(count);
   free(keffs);
   fftw_free(field);
-  fftw_free(comp);
   fftw_destroy_plan(pl);
   return 0;
 }
