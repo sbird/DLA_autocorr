@@ -17,7 +17,7 @@
 void multiply_by_tophat(double * field, int size, double thresh);
 void discretize(double * field, int size);
 double find_total(double * field, int size);
-std::map<double, int> pdf(double * field, int size, double xmin, double xmax, double xstep);
+std::map<double, int> pdf(const double * field, const int size, const double xmin, const double xmax, const double xstep, const double conv);
 
 #ifndef N_TYPE
         #define N_TYPE 6

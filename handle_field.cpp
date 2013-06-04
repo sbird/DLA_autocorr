@@ -38,21 +38,21 @@ double find_total(double * field, int size)
 }
 
 /*Count the values of a field to find the pdf*/
-std::map<double, int> pdf(double * field, int size, double xmin, double xmax, double xstep)
+std::map<double, int> pdf(const double * field, const int size, const double xmin, const double xmax, const double xstep, const double conv)
 {
     std::map<double, int> hist;
     
     //Initialise the key values
     for (double i = xmin; i < xmax; i+=xstep)
-        hist[pow(10,i)] = 0;
-    hist[pow(10,xmax)] = 0;
+        hist[pow(10.,i)] = 0;
+    hist[pow(10.,xmax)] = 0;
     
     //Count values: note this means that the last entry will contain the 
     //no. of elements past the end
     for (int i = 0; i < size; ++i)
     {
         //Lower bound = first key equal to or greater than.
-        std::map<double,int>::iterator it = hist.lower_bound(*(field+i));
+        std::map<double,int>::iterator it = hist.lower_bound((*(field+i))*conv);
         if (it != hist.begin())
             *(it--)++;
     }

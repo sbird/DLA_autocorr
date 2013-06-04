@@ -27,9 +27,18 @@
 #include <fstream>
 #include <fftw3.h>
 
+//Internal gadget mass unit: 10^10 M_sun in g
+#define UnitMassing 1.989e43
+//Proton mass in g
+#define PROTONMASS 1.66053886e-24
+//Hydrogen mass fraction
+#define HYMASS 0.76
+//Internal gadget length unit: 1 kpc/h in cm/h
+#define UnitLengthincm 3.085678e21
+
 void help()
 {
-//TODO: write this
+    std::cout<<"Options: -i input file -o output directory"<<std::endl;
 }
 
 std::string find_first_hdf_file(const std::string& infname)
@@ -74,29 +83,19 @@ int file_readable(const char * filename)
 
 using namespace std;
 
-void convert_units(double * field, int size, const double redshift, const double box, const double h100)
+/**
+ * Get the scale factor to convert from Gadget Mass/cell to amu/cm^2
+ * This is 10^10 M_sun / (cell length in cm)^2
+ */
+double convert_pdf_units(const double redshift, const double box, const double h100)
 {
-        const double UnitMassing = 1.989e43;
-        //Internal gadget length unit: 1 kpc/h in cm/h
-        const double UnitLengthincm=3.085678e21;
-        //in g
-        const double proton = 1.66053886e-24;
-        //From M_sun/h/(kpc/h)^3 to g/cm^3 (comoving)
-        //1 kpc/h in physical cm
-        const double rscale = UnitLengthincm/(1+redshift)/h100;
-        // 10^10 M_sun in g
-        const double mscale = UnitMassing/h100;
-        double conv = mscale/pow(rscale,3);
-        //To atoms / cm^3
-        conv/=proton;
-        //To atoms / cm^2
-        const double column = box/FIELD_DIMS*UnitLengthincm*(1+redshift)/h100;
-        conv*=column;
-        for(int i=0; i< size; i++)
-            field[i]*=conv;
+        //Convert from Gadget mass to hydrogen atoms: the factor of 0.76 is for the hydrogen mass fraction
+        const double mscale = UnitMassing/h100*(HYMASS/PROTONMASS);
+        //Length of a cell in physical cm
+        const double cell = box/FIELD_DIMS*UnitLengthincm/(1+redshift)/h100;
+        double conv = mscale/pow(cell,2);
+        return conv;
 }
-/** \file 
- * File containing main() */
 
 /** Main function. Accepts arguments, uses GadgetReader to open the snapshot, prints some header info, 
  * allocates FFT memory and creates a plan, calls read_fieldize and powerspectrum, prints the P(k) 
@@ -210,15 +209,24 @@ int main(int argc, char* argv[]){
   fftw_free(comp);
   std::cout<< "Done interpolating"<<std::endl;
   //Find totals and pdf
-  //BE CAREFUL WITH FFTW!
-  convert_units(field, size, snap.redshift, snap.box100, snap.h100);
+  //Total mass in gadget units
   double total_HI = find_total(field, size);
-  multiply_by_tophat(field, size, pow(10, 20.3));
+  //Convert to M_sun/Mpc^3
+  total_HI*=(1e10/pow(snap.box100/1000./snap.h100,3));
+  //Conversion factor from mass to column density
+  const double MtoCol = convert_pdf_units(snap.redshift, snap.box100, snap.h100);
+  //Find pdf
+  std::map<double, int> hist = pdf(field, size, 17, 23, 0.2, MtoCol);
+  //Discard everything not a DLA
+  multiply_by_tophat(field, size, pow(10, 20.3)/MtoCol);
+  //Find total mass in DLAs
   double total_DLA = find_total(field, size);
-  std::map<double, int> hist = pdf(field, size, 17, 23, 0.2);
+  total_DLA*=(1e10/pow(snap.box100/1000./snap.h100,3));
   /*Now make a power spectrum*/
   discretize(field, size);
+  //BE CAREFUL WITH FFTW!
   powerspectrum(FIELD_DIMS,&pl,outfield,nrbins, power,count,keffs);
+  //Output is in grid units
   filename=outdir;
   filename+="/DLA_autocorr_"+indir.substr(last+1);
   std::ofstream file;
