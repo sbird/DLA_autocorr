@@ -216,14 +216,17 @@ int main(int argc, char* argv[]){
   //Conversion factor from mass to column density
   const double MtoCol = convert_pdf_units(snap.redshift, snap.box100, snap.h100);
   //Find pdf
-  std::map<double, int> hist = pdf(field, size, 17, 23, 0.2, MtoCol);
+  std::map<double, int> hist = histogram(field, size, pow(10,17)/MtoCol, pow(10,23)/MtoCol, 30);
   //Discard everything not a DLA
   multiply_by_tophat(field, size, pow(10, 20.3)/MtoCol);
   //Find total mass in DLAs
   double total_DLA = find_total(field, size);
   total_DLA*=(1e10/pow(snap.box100/1000./snap.h100,3));
   /*Now make a power spectrum*/
+  /*First make it a boolean array of where there is a DLA*/
   discretize(field, size);
+  /*Then divide by the mean to make a delta*/
+  calc_delta(field, size, FIELD_DIMS*FIELD_DIMS*FIELD_DIMS);
   //BE CAREFUL WITH FFTW!
   powerspectrum(FIELD_DIMS,&pl,outfield,nrbins, power,count,keffs);
   //Output is in grid units
@@ -237,12 +240,12 @@ int main(int argc, char* argv[]){
   }
   file << indir <<std::endl;
   //z a h box H(z) Omega_0 Omega_b
-  file << snap.redshift << " " << snap.atime <<" " << snap.h100 << " " << snap.box100 << " " << snap.omega0 << " " << snap.omegab << std::endl;
+  file << snap.redshift << " " << FIELD_DIMS <<" " << snap.h100 << " " << snap.box100 << " " << snap.omega0 << " " << snap.omegab << std::endl;
   file << "==" <<std::endl;
   file << total_HI << " " << total_DLA <<std::endl;
   file << "==" <<std::endl;
   for (std::map<double,int>::iterator it=hist.begin(); it!=hist.end(); ++it)
-    file << it->first << " " << it->second << std::endl;
+    file << (it->first)*MtoCol << " " << it->second << std::endl;
   file << "==" <<std::endl;
   for(int i=0;i<nrbins;i++)
   {

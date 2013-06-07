@@ -17,7 +17,9 @@
 void multiply_by_tophat(double * field, int size, double thresh);
 void discretize(double * field, int size);
 double find_total(double * field, int size);
-std::map<double, int> pdf(const double * field, const int size, const double xmin, const double xmax, const double xstep, const double conv);
+std::map<double, double> pdf(std::map<double, int> hist, const int size);
+std::map<double, int> histogram(const double * field, const int size, const double xmin, const double xmax, const int nxbins);
+void calc_delta(double * field, int size, int realsize);
 
 #ifndef N_TYPE
         #define N_TYPE 6

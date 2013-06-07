@@ -44,7 +44,7 @@ inline void KahanSum(double* sum, double* comp, const double input, const int xo
 
 inline void KahanSum(double* sum, double* comp, const double input, const int xoff,const int yoff, const int zoff, const int nx)
 {
-  const int off = nx*nx*xoff+nx*yoff+zoff;
+  const int off = (xoff*nx+yoff)*(2*(nx/2+EXTRA))+zoff;
   *(sum+off)+=input;
 }
 #endif
