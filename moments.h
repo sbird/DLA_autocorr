@@ -3,6 +3,7 @@
 
 #include <map>
 #include <fftw3.h>
+#include <stdint.h>
 
 #define XH 0.76
 //Internal gadget mass unit: 1e10 M_sun/h in g/h
@@ -38,9 +39,11 @@ class H5Snap
         double omegab;
         double mass[N_TYPE];
         int load_hdf5_snapshot(const char *ffname, int fileno, float **Pos, float ** Mass, float ** h);
+        int load_hdf5_dm_snapshot(const char *ffname, int fileno, int parttype, float **Pos, float **Mass);
 };
 
 int SPH_interpolate(double * field, double * comp, const int nx, float *pos, float *radii, float *value, float *weights, const double box, const int nval, const int periodic);
+int CiC_interpolate(double boxsize, int dims, double *out, int64_t segment_particles, float *positions,float *mass, int extra);
 
 #ifdef __cplusplus
 extern "C" {

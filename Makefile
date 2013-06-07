@@ -25,10 +25,10 @@ else
 endif
 .PHONY: all clean
 
-all: moments
+all: moments total
 
 clean: 
-	rm *.o moments
+	rm *.o moments total
 
 %.o: %.c
 	$(CC) $(CFLAGS) -std=gnu99 -c $^ -o $@
@@ -37,4 +37,7 @@ clean:
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 moments: main.o read_hdf_snapshot.o SPH_fieldize.o handle_field.o powerspectrum.o
+	$(LINK) $(LFLAGS) -lfftw3 -lfftw3_threads -lhdf5 -lhdf5_cpp $^ -o $@
+
+total: main_total.o read_hdf_snapshot.o SPH_fieldize.o CiC_fieldize.o handle_field.o powerspectrum.o
 	$(LINK) $(LFLAGS) -lfftw3 -lfftw3_threads -lhdf5 -lhdf5_cpp $^ -o $@

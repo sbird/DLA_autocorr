@@ -163,3 +163,50 @@ exit:
   free(density);
   return length;
 }
+
+/* This routine loads particle data from a single HDF5 snapshot file.
+ * A snapshot may be distributed into multiple files. */
+int H5Snap::load_hdf5_dm_snapshot(const char *ffname, int fileno, int parttype, float **Pos_out, float **Mass_out)
+{
+  size_t i;
+  int npart[N_TYPE];
+  char name[16];
+  hsize_t length;
+  H5::H5File hdf_file(ffname,H5F_ACC_RDONLY);
+
+  {
+    H5::Group hdf_group(hdf_file.openGroup("/Header"));
+    hdf_group.openAttribute("NumPart_ThisFile").read(H5::PredType::NATIVE_INT,&npart);
+  }
+
+  const int np = npart[parttype];
+  float * Pos=(float *)malloc(np*3*sizeof(float));
+  float * Mass=(float *) malloc(np*sizeof(float));
+  assert(Mass);
+  assert(Pos);
+  /*Open particle data*/
+  snprintf(name,16,"/PartType%d",parttype);
+
+  H5::Group hdf_group(hdf_file.openGroup(name));
+  /* Read position and velocity*/
+  length = get_single_dataset("Coordinates",Pos,np,&hdf_group,fileno);
+  if(length == 0)
+          goto exit;
+  printf("Reading File %d (%lu particles)\n", fileno,(uint64_t)length);
+
+  /* Particle masses  */
+  if(mass[parttype])
+        for(i=0; i< length;i++)
+           Mass[i] = mass[parttype];
+  else
+     if (length != get_single_dataset("Masses",Mass,length,&hdf_group,fileno))
+             goto exit;
+  if(fileno < 1){
+        printf("\nP[%d].Pos = [%g %g %g]\n", 0, Pos[0], Pos[1],Pos[2]);
+        printf("P[-1].Mass = %e\n", Mass[0]);
+  }
+exit:
+  *Pos_out = Pos;
+  *Mass_out = Mass;
+  return length;
+}
