@@ -44,7 +44,10 @@ class AutoCorr:
 
         #Read total density
         mom.readline()
-        [self.rho_HI, self.rho_DLA] = mom.readline().split()
+        inn = mom.readline().split()
+        self.rho_HI = inn [0]
+        if np.size(inn) > 1:
+            self.rho_DLA = inn[1]
         inline = mom.readline()
         bins = []
         hist = []

@@ -34,7 +34,7 @@
 int powerspectrum(int dims, fftw_plan* pl,fftw_complex *outfield, int nrbins, double *power, int *count,double *keffs)
 {
 	const int dims2=dims*dims;
-	const int dims3=dims2*dims;
+	const long dims3=dims2*dims;
 	/*How many bins per unit interval in k?*/
 	const int binsperunit=nrbins/(floor(sqrt(3)*abs((dims+1.0)/2.0)+1));
 	/*Half the bin width*/
@@ -74,13 +74,13 @@ int powerspectrum(int dims, fftw_plan* pl,fftw_complex *outfield, int nrbins, do
 		 * Use the symmetry of the real fourier transform to half the final dimension.*/
 		#pragma omp for schedule(static, 128) nowait
 		for(int i=0; i<dims;i++){
-			int indx=i*dims*(dims/2+1);
+			size_t indx=i*dims*(dims/2+1);
 			for(int j=0; j<dims; j++){
-				int indy=j*(dims/2+1);
+				size_t indy=j*(dims/2+1);
 				/* The k=0 and N/2 mode need special treatment here, 
 				 * as they alone are not doubled.*/
 				/*Do k=0 mode.*/
-				int index=indx+indy;
+				size_t index=indx+indy;
 				float kk=sqrt(pow(KVAL(i),2)+pow(KVAL(j),2));
 				int psindex=floor(binsperunit*kk);
 				powerpriv[psindex]+=(pow(outfield[index][0],2)+pow(outfield[index][1],2))*pow(invwindow(KVAL(i),KVAL(j),0,dims),2);

@@ -16,10 +16,10 @@ endif
 
 #Are we using gcc or icc?
 ifeq (icc,$(findstring icc,${CC}))
-  CFLAGS +=-O2 -g -c -w1 -openmp -fpic
+  CFLAGS +=-O2 -g -c -w1 -openmp -fpic -DNO_KAHAN
   LINK +=${CXX} -openmp
 else
-  CFLAGS +=-O3 -g -c -Wall -fopenmp -fPIC
+  CFLAGS +=-O3 -g -c -Wall -fopenmp -fPIC -DNO_KAHAN
   LINK +=${CXX} -openmp $(PRO)
   LFLAGS += -lm -lgomp
 endif
@@ -31,13 +31,13 @@ clean:
 	rm *.o moments total
 
 %.o: %.c
-	$(CC) $(CFLAGS) -std=gnu99 -c $^ -o $@
+	$(CC) $(CFLAGS) -std=gnu99 -c $^
 
-%.o: %.cpp
-	$(CC) $(CFLAGS) -c $^ -o $@
+%.o: %.cpp moments.h
+	$(CXX) $(CFLAGS) -c $^
 
-moments: main.o read_hdf_snapshot.o SPH_fieldize.o handle_field.o powerspectrum.o
+moments: main.o read_hdf_snapshot.o SPH_fieldize.o handle_field.o powerspectrum.o moments.h
 	$(LINK) $(LFLAGS) -lfftw3 -lfftw3_threads -lhdf5 -lhdf5_cpp $^ -o $@
 
-total: main_total.o read_hdf_snapshot.o SPH_fieldize.o CiC_fieldize.o handle_field.o powerspectrum.o
+total: main_total.o read_hdf_snapshot.o SPH_fieldize.o CiC_fieldize.o handle_field.o powerspectrum.o moments.h
 	$(LINK) $(LFLAGS) -lfftw3 -lfftw3_threads -lhdf5 -lhdf5_cpp $^ -o $@

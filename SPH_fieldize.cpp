@@ -6,7 +6,7 @@
 #include "moments.h"
 
 //Do allocate extra memory for FFTW
-#define EXTRA 1
+#define EXTRA 1L
 
 /*Compute the SPH weighting for this cell.
  * rr is the smoothing length, r0 is the distance of the cell from the center*/
@@ -30,9 +30,9 @@ double compute_sph_cell_weight(double rr, double r0)
 #ifndef NO_KAHAN
 /*Evaluate one iteration of Kahan Summation: sum is the current value of the field,
  *comp the compensation array, input the value to add this time.*/
-inline void KahanSum(double* sum, double* comp, const double input, const int xoff,const int yoff, const int zoff, const int nx)
+inline void KahanSum(double* sum, double* comp, const double input, const int xoff,const int yoff, const int zoff, const long nx)
 {
-  const int off = (xoff*nx+yoff)*(2*(nx/2+EXTRA))+zoff;
+  const long off = (xoff*nx+yoff)*(2*(nx/2+EXTRA))+zoff;
   assert(off < nx*nx*(2*nx/2+1));
   const double yy = input - *(comp+off);
   const double temp = *(sum+off)+yy;     //Alas, sum is big, y small, so low-order digits of y are lost.
@@ -42,9 +42,9 @@ inline void KahanSum(double* sum, double* comp, const double input, const int xo
 
 #else
 
-inline void KahanSum(double* sum, double* comp, const double input, const int xoff,const int yoff, const int zoff, const int nx)
+inline void KahanSum(double* sum, double* comp, const double input, const int xoff,const int yoff, const int zoff, const long nx)
 {
-  const int off = (xoff*nx+yoff)*(2*(nx/2+EXTRA))+zoff;
+  const long off = (xoff*nx+yoff)*(2*(nx/2+EXTRA))+zoff;
   *(sum+off)+=input;
 }
 #endif
@@ -52,13 +52,15 @@ inline void KahanSum(double* sum, double* comp, const double input, const int xo
 /**
  Do the hard work interpolating with an SPH kernel particles handed to us from python.
 */
-int SPH_interpolate(double * field, double * comp, const int nx, float *pos, float *radii, float *value, float *weights, const double box, const int nval, const int periodic)
+int SPH_interpolate(double * field, double * comp, const int nx, float *pos, float *radii, float *value, float *weights, const double box, const long nval, const int periodic)
 {
     assert(value);
     assert(pos);
     assert(radii);
     assert(field);
+#ifndef NO_KAHAN
     assert(comp);
+#endif
     //Convert to grid units
     const double conv = (nx-1)/box;
     for(int p=0;p<nval;p++){

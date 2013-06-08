@@ -79,7 +79,7 @@ int file_readable(const char * filename)
 }
 /** Maximal size of FFT grid. 
  * In practice 1024 means we need just over 4GB, as sizeof(float)=4*/
-#define FIELD_DIMS 1024
+#define FIELD_DIMS 2048L
 
 using namespace std;
 
@@ -146,19 +146,27 @@ int main(int argc, char* argv[]){
 
   //Get the header and print out some useful things
   nrbins=floor(sqrt(3)*((FIELD_DIMS+1.0)/2.0)+1);
-  const size_t size = 2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1);
+  const size_t size = 2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1L);
   //Memory for the field
   /* Allocating a bit more memory allows us to do in-place transforms.*/
   field=(double *)fftw_malloc(size*sizeof(double));
   //For the compensation array: extra mem not necessary but simplifies things
+  #ifndef NO_KAHAN
   comp=(double *)fftw_malloc(size*sizeof(double));
   if( !comp || !field ) {
+  #else
+  if( !field ) {
+  #endif
   	fprintf(stderr,"Error allocating memory for field\n");
   	return 1;
   }
   //Initialise
-  for(int i=0; i< 2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1); i++)
-      field[i] = comp[i] = 0;
+  for(size_t i=0; i< size; i++){
+      field[i] = 0;
+  #ifndef NO_KAHAN
+      comp[i] = 0;
+  #endif
+  }
   string filename=outdir;
   size_t last=indir.find_last_of("/\\");
   //Set up FFTW
@@ -206,7 +214,9 @@ int main(int argc, char* argv[]){
           else
            break;
   }
+  #ifndef NO_KAHAN
   fftw_free(comp);
+  #endif
   std::cout<< "Done interpolating"<<std::endl;
   //Find totals and pdf
   //Total mass in gadget units

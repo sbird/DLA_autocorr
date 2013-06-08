@@ -44,13 +44,14 @@ int CiC_interpolate(double boxsize, int dims, double *out, int64_t segment_parti
 	const int fdims=2*(dims/2+extra);
 	/*If extra is on, we want to leave space for FFTW 
 	 * to put the extra bits, so skip a couple of places.*/
-	const int dims2=fdims*dims;
-	const float units=dims/boxsize;
+	const long dims2=fdims*dims;
+	const double units=dims/boxsize;
 	/* This is one over density.*/
 	#pragma omp parallel for
 	for(int index=0;index<segment_particles;index+=IL){
-		float dx[3],tx[3], x[3], temp[IL][8];
-		int fx[3],nex[3],temp2[IL][8];
+        double dx[3],tx[3], x[3], temp[IL][8];
+        int fx[3],nex[3];
+        int64_t temp2[IL][8];
         int il=(index+IL<segment_particles ? IL : segment_particles-index);
 		for(int k=0; k<il; k++){
 			for(int i=0; i<3; i++){
@@ -65,7 +66,7 @@ int CiC_interpolate(double boxsize, int dims, double *out, int64_t segment_parti
                 if(fx[i]<0)
                     fx[i]+=dims;
 			}
-			float mass = masses[index+k]*units;
+			double mass = masses[index+k]*units;
 			temp[k][0]=mass*tx[0]*tx[1]*tx[2];
 			temp[k][1]=mass*dx[0]*tx[1]*tx[2];
 			temp[k][2]=mass*tx[0]*dx[1]*tx[2];
