@@ -15,6 +15,7 @@
 #include <fftw3.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 /** \file 
  * Defines powerspectrum() wrapper around FFTW*/
@@ -33,13 +34,17 @@
 
 int powerspectrum(int dims, fftw_plan* pl,fftw_complex *outfield, int nrbins, double *power, int *count,double *keffs)
 {
-	const int dims2=dims*dims;
-	const long dims3=dims2*dims;
-	/*How many bins per unit interval in k?*/
-	const int binsperunit=nrbins/(floor(sqrt(3)*abs((dims+1.0)/2.0)+1));
-	/*Half the bin width*/
-	const float bwth=1.0/(2.0*binsperunit);
-	fftw_execute(*pl);
+    const size_t dims2=dims*dims;
+    const size_t dims3=dims2*dims;
+    const size_t fdims = (dims/2+1);
+    const size_t fdims2 = dims*fdims;
+    /*How many bins per unit interval in k?*/
+    const int binsperunit=nrbins/(floor(sqrt(3)*abs((dims+1.0)/2.0)+1));
+    /*Half the bin width*/
+    const float bwth=1.0/(2.0*binsperunit);
+    fftw_execute(*pl);
+    memset(power, 0, nrbins*sizeof(double));
+    memset(count, 0, nrbins*sizeof(int));
 	/* Now we compute the powerspectrum in each direction.
 	 * FFTW is unnormalised, so we need to scale by the length of the array
 	 * (we do this later). */
@@ -49,8 +54,6 @@ int powerspectrum(int dims, fftw_plan* pl,fftw_complex *outfield, int nrbins, do
 		 * k_eff is k+ 2a^2k/(a^2+3k^2) */
 		float k=i*2.0*bwth;
 		keffs[i]=(k+bwth)+2*pow(bwth,2)*(k+bwth)/(pow(bwth,2)+3*pow((k+bwth),2));
-		power[i]=0;
-		count[i]=0;
 	}
 	/*After this point, the number of modes is decreasing.*/
 	for(int i=nrbins/2; i< nrbins; i++){
@@ -59,24 +62,20 @@ int powerspectrum(int dims, fftw_plan* pl,fftw_complex *outfield, int nrbins, do
 		 * k_eff is k+ 2a^2k/(a^2+3k^2) */
 		float k=i*2.0*bwth;
 		keffs[i]=(k+bwth)-2*pow(bwth,2)*(k+bwth)/(pow(bwth,2)+3*pow((k+bwth),2));
-		power[i]=0;
-		count[i]=0;
 	}
 	#pragma omp parallel 
 	{
 		float powerpriv[nrbins];
 		int countpriv[nrbins];
-		for(int i=0; i< nrbins; i++){
-			powerpriv[i]=0;
-			countpriv[i]=0;
-		}
+        memset(powerpriv, 0, nrbins*sizeof(float));
+        memset(countpriv, 0, nrbins*sizeof(int));
 		/* Want P(k)= F(k).re*F(k).re+F(k).im*F(k).im
 		 * Use the symmetry of the real fourier transform to half the final dimension.*/
 		#pragma omp for schedule(static, 128) nowait
 		for(int i=0; i<dims;i++){
-			size_t indx=i*dims*(dims/2+1);
+			size_t indx=i*fdims2;
 			for(int j=0; j<dims; j++){
-				size_t indy=j*(dims/2+1);
+				size_t indy=j*fdims;
 				/* The k=0 and N/2 mode need special treatment here, 
 				 * as they alone are not doubled.*/
 				/*Do k=0 mode.*/
