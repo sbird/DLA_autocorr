@@ -97,7 +97,7 @@ int SPH_interpolate(double * field, double * comp, const int nx, float *pos, flo
         /* First compute the cell weights.
          * Subsample the cells if the smoothing length is O(1 cell).
          * This is more accurate, and also avoids edge cases where the particle can rest just between a cell.*/
-        int nsub=2*((int)(3./rr))+1;
+        int nsub=2*((int)(1./rr))+1;
         double subs[nsub];
         /*Spread subsamples evenly across cell*/
         for(int i=0; i < nsub; i++)
