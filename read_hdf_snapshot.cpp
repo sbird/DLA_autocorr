@@ -129,7 +129,8 @@ int H5Snap::load_hdf5_snapshot(const char *ffname, int fileno, float **Pos_out, 
         as Arepo reports values for the eEOS.*/
       double dens = density[i]*UnitMass_in_g/pow(UnitLength_in_cm,3)/protonmass*h100*h100;
       dens*=XH*pow(1+redshift,3);
-      if(dens > 0.1)
+      /*SFR threshold as read from Gadget output*/
+      if(dens > 0.261268*h100*h100/0.76)
           fraction[i] = rah_neut_frac(dens, redshift);
       Mass[i]*=fraction[i]*XH;
   }
