@@ -16,6 +16,9 @@ from save_figure import save_figure
 #The 5Mpc cut-off used in Font-Ribera 2012
 k_cut = 0.2
 
+colors = {0:"red", 1:"purple", 2:"blue", 3:"green", 4:"orange", 5:"cyan"}
+lss = {0:"--",1:":", 2:"-",3:"-.", 4:"-", 5:"--"}
+
 def plot_bias(datafile,color="blue", ls="-"):
     """Plot the bias from a snapshot"""
     dd = bias.AutoCorr(datafile)
@@ -65,25 +68,23 @@ def plot_data():
 
 def plot_all_sims():
     """Plot all the sims"""
-    base="/home/spb/data/Cosmo/Cosmo2_V6/L25n512/"
-    base3="/home/spb/data/Cosmo/Cosmo3_V6/L25n512/"
-    base0="/home/spb/scratch/Cosmo/Cosmo0_V6_512/"
-    plot_sim(base,[1,3,5],[4,3,2])
-    plot_sim(base3,[1,2,3],[4,3,2],"red")
-    plot_sim(base0,[54,60,68],[4,3,2],"green")
+    for ii in xrange(6):
+        base="/home/spb/data/Cosmo/Cosmo"+str(ii)+"_V6/L25n512/output/"
+        plot_sim(base,[1,3,5],[4,3,2], colors[ii])
     plot_data()
 
 def plot_all_sims_scale_z2():
     """Plot all the sims"""
-    base="/home/spb/data/Cosmo/Cosmo2_V6/L25n512/snapdir_005/DLA_autocorr_snap_005"
-    base3="/home/spb/data/Cosmo/Cosmo3_V6/L25n512/snapdir_003/DLA_autocorr_snap_003"
-    base0="/home/spb/scratch/Cosmo/Cosmo0_V6_512/snapdir_068/DLA_autocorr_snap_068"
-    plot_bias(base)
-    plot_bias(base3,"red",ls="--")
-    plot_bias(base0,"green",ls="-.")
+    for ii in range(6):
+        base="/home/spb/data/Cosmo/Cosmo"+str(ii)+"_V6/L25n512/output/snapdir_005/DLA_autocorr_snap_005"
+        plot_bias(base, colors[ii], ls=lss[ii])
     bias_data_scale()
     plt.xlim(0.049, k_cut)
 
 if __name__ == "__main__":
     plot_all_sims_scale_z2()
+    plt.xlabel("k (h/Mpc)")
+    plt.ylabel(r"$\mathrm{b}_\mathrm{D}$")
+    plt.ylim(0.8,3.5)
+    plt.xticks([0.05, 0.1,0.2],["0.05","0.1","0.2"])
     save_figure("DLA_bias_z2")
