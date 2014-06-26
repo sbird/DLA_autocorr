@@ -32,7 +32,7 @@
 /**Little macro to work the storage order of the FFT.*/
 #define KVAL(n) ((n)<=dims/2 ? (n) : ((n)-dims))
 
-int powerspectrum(int dims, fftw_plan* pl,fftw_complex *outfield, int nrbins, double *power, int *count,double *keffs)
+int powerspectrum(int dims, fftwf_plan* pl,fftwf_complex *outfield, int nrbins, double *power, int *count,double *keffs)
 {
     const size_t dims2=dims*dims;
     const size_t dims3=dims2*dims;
@@ -42,7 +42,7 @@ int powerspectrum(int dims, fftw_plan* pl,fftw_complex *outfield, int nrbins, do
     const int binsperunit=nrbins/(floor(sqrt(3)*abs((dims+1.0)/2.0)+1));
     /*Half the bin width*/
     const float bwth=1.0/(2.0*binsperunit);
-    fftw_execute(*pl);
+    fftwf_execute(*pl);
     memset(power, 0, nrbins*sizeof(double));
     memset(count, 0, nrbins*sizeof(int));
 	/* Now we compute the powerspectrum in each direction.

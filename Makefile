@@ -37,7 +37,7 @@ clean:
 	$(CXX) $(CFLAGS) -c $^
 
 moments: main.o read_hdf_snapshot.o SPH_fieldize.o handle_field.o powerspectrum.o moments.h
-	$(LINK) $(LFLAGS) -lfftw3 -lfftw3_threads -lhdf5 -lhdf5_cpp $^ -o $@
+	$(LINK) $(LFLAGS) -lfftw3f -lfftw3f_threads -lhdf5 -lhdf5_cpp $^ -o $@
 
 total: main_total.o read_hdf_snapshot.o SPH_fieldize.o CiC_fieldize.o handle_field.o powerspectrum.o moments.h
-	$(LINK) $(LFLAGS) -lfftw3 -lfftw3_threads -lhdf5 -lhdf5_cpp $^ -o $@
+	$(LINK) $(LFLAGS) -lfftw3f -lfftw3f_threads -lhdf5 -lhdf5_cpp $^ -o $@

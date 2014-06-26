@@ -103,14 +103,14 @@ double convert_pdf_units(const double redshift, const double box, const double h
 int main(int argc, char* argv[]){
   int nrbins;
   double *power, *keffs;
-  double *field, *comp;
+  FloatType *field, *comp;
   int *count; 
   string indir(""),outdir("");
   char c;
   int64_t Npart;
   float * Pos, *Mass, *hsml;
-  fftw_plan pl;
-  fftw_complex *outfield;
+  fftwf_plan pl;
+  fftwf_complex *outfield;
   while((c = getopt(argc, argv, "i:o:h")) !=-1){
     switch(c){
         case 'o':
@@ -149,9 +149,9 @@ int main(int argc, char* argv[]){
   const size_t size = 2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1L);
   //Memory for the field
   /* Allocating a bit more memory allows us to do in-place transforms.*/
-  field=(double *)fftw_malloc(size*sizeof(double));
+  field=(FloatType *)fftwf_malloc(size*sizeof(FloatType));
   #ifndef NO_KAHAN
-  comp=(double *)fftw_malloc(size*sizeof(double));
+  comp=(FloatType *)fftwf_malloc(size*sizeof(FloatType));
   if( !comp || !field ) {
   #else
   if( !field ) {
@@ -169,15 +169,15 @@ int main(int argc, char* argv[]){
   string filename=outdir;
   size_t last=indir.find_last_of("/\\");
   //Set up FFTW
-  outfield=(fftw_complex *) &field[0];
-  if(!fftw_init_threads()){
-          std::cerr<<"Error initialising fftw threads\n";
+  outfield=(fftwf_complex *) &field[0];
+  if(!fftwf_init_threads()){
+          std::cerr<<"Error initialising fftwf threads\n";
   		  return 0;
   }
   int threads = std::min(omp_get_num_procs(),6);
   omp_set_num_threads(threads);
-  fftw_plan_with_nthreads(threads);
-  pl=fftw_plan_dft_r2c_3d(FIELD_DIMS,FIELD_DIMS,FIELD_DIMS,&field[0],outfield, FFTW_ESTIMATE);
+  fftwf_plan_with_nthreads(threads);
+  pl=fftwf_plan_dft_r2c_3d(FIELD_DIMS,FIELD_DIMS,FIELD_DIMS,&field[0],outfield, FFTW_ESTIMATE);
   //Allocate memory for output
   power=(double *) malloc(nrbins*sizeof(double));
   count=(int *) malloc(nrbins*sizeof(int));
@@ -234,7 +234,7 @@ int main(int argc, char* argv[]){
            break;
   }
   #ifndef NO_KAHAN
-  fftw_free(comp);
+  fftwf_free(comp);
   #endif
   std::cout<< "Done interpolating"<<std::endl;
   //Find totals and pdf
@@ -273,8 +273,8 @@ int main(int argc, char* argv[]){
   free(power);
   free(count);
   free(keffs);
-  fftw_free(field);
-  fftw_destroy_plan(pl);
+  fftwf_free(field);
+  fftwf_destroy_plan(pl);
   return 0;
 }
 

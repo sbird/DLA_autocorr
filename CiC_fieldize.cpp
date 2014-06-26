@@ -17,6 +17,7 @@
  * out is an array of size [dims*dims*dims]*/
 #include <math.h>
 #include <stdint.h>
+#include "moments.h"
 
 /** Number of particles to keep in the thread-local buffer*/
 #define IL 64
@@ -39,7 +40,7 @@
  * is about to be handed to an FFTW in-place routine, 
  * and skip the last 2 places of each row in the last dimension (of out)
  */
-int CiC_interpolate(double boxsize, int dims, double *out, int64_t segment_particles, float *positions,float *masses, int extra)
+int CiC_interpolate(double boxsize, int dims, FloatType *out, int64_t segment_particles, float *positions,float *masses, int extra)
 {
 	const int fdims=2*(dims/2+extra);
 	/*If extra is on, we want to leave space for FFTW 

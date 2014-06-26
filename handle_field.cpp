@@ -4,7 +4,7 @@
 /** Functions for working with an interpolated field*/
 
 /* Multiply all elements of size field by a top hat function H(x > thresh)*/
-void multiply_by_tophat(double * field, size_t size, double thresh)
+void multiply_by_tophat(FloatType * field, size_t size, FloatType thresh)
 {
     #pragma omp parallel for
     for(size_t i=0; i< size; i++)
@@ -14,7 +14,7 @@ void multiply_by_tophat(double * field, size_t size, double thresh)
 }
 
 /* Make all positive array values 1*/
-void discretize(double * field, size_t size)
+void discretize(FloatType * field, size_t size)
 {
     #pragma omp parallel for
     for(size_t i=0; i< size; i++)
@@ -28,7 +28,7 @@ void discretize(double * field, size_t size)
 /* Normalise by the mean of the field, so that the field has mean 0,
  * sd. 1.
  * ie, calculate delta = rho / rho_bar - 1 */
-void calc_delta(double * field, size_t size, long realsize)
+void calc_delta(FloatType * field, size_t size, long realsize)
 {
     const double mean = find_total(field, size) / realsize;
     #pragma omp parallel for
@@ -39,7 +39,7 @@ void calc_delta(double * field, size_t size, long realsize)
 }
 
 /* Find the total value of all elements of a field*/
-double find_total(double * field, size_t size)
+double find_total(FloatType * field, size_t size)
 {
     double total=0;
     #pragma omp parallel for reduction(+:total)
@@ -57,7 +57,7 @@ double find_total(double * field, size_t size)
  * xmax: largest histogram bin
  * nxbins: number of bins to cover the above range. Bins are log spaced.
  *  */
-std::map<double, int> histogram(const double * field, const size_t size, const double xmin, const double xmax, const int nxbins)
+std::map<double, int> histogram(const FloatType * field, const size_t size, const double xmin, const double xmax, const int nxbins)
 {
     std::map<double, int> hist;
     

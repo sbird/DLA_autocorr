@@ -42,7 +42,7 @@ inline void KahanSum(double* sum, double* comp, const double input, const int xo
 
 #else
 
-inline void KahanSum(double* sum, double* comp, const double input, const int xoff,const int yoff, const int zoff, const long nx)
+inline void KahanSum(FloatType* sum, FloatType* comp, const double input, const int xoff,const int yoff, const int zoff, const long nx)
 {
   const long off = (xoff*nx+yoff)*(2*(nx/2+EXTRA))+zoff;
   *(sum+off)+=input;
@@ -52,7 +52,7 @@ inline void KahanSum(double* sum, double* comp, const double input, const int xo
 /**
  Do the hard work interpolating with an SPH kernel particles handed to us from python.
 */
-int SPH_interpolate(double * field, double * comp, const int nx, float *pos, float *radii, float *value, float *weights, const double box, const long nval, const int periodic)
+int SPH_interpolate(FloatType * field, FloatType * comp, const int nx, float *pos, float *radii, float *value, float *weights, const double box, const long nval, const int periodic)
 {
     assert(value);
     assert(pos);
