@@ -209,7 +209,12 @@ int main(int argc, char* argv[]){
           if(i_fileno && i_fileno != std::string::npos){
 		    std::ostringstream convert;
 		    convert<<fileno;
-            ffname = fname.replace(i_fileno, 1, convert.str());
+            int replace = convert.str().length();
+            if (fileno == 10)
+              replace = 1;
+            if (fileno == 100)
+              replace = 2;
+            ffname = fname.replace(i_fileno, replace, convert.str());
 		  }
           else
            break;

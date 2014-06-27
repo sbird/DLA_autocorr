@@ -40,22 +40,22 @@
  * is about to be handed to an FFTW in-place routine, 
  * and skip the last 2 places of each row in the last dimension (of out)
  */
-int CiC_interpolate(double boxsize, int dims, FloatType *out, int64_t segment_particles, float *positions,float *masses, int extra)
+int CiC_interpolate(double boxsize, int dims, FloatType *out, size_t segment_particles, float *positions,float *masses, int extra)
 {
-	const int fdims=2*(dims/2+extra);
+	const size_t fdims=2*(dims/2+extra);
 	/*If extra is on, we want to leave space for FFTW 
 	 * to put the extra bits, so skip a couple of places.*/
-	const long dims2=fdims*dims;
-	const double units=dims/boxsize;
+	const size_t dims2=fdims*dims;
+	const FloatType units=dims/boxsize;
 	/* This is one over density.*/
 	#pragma omp parallel for
-	for(int index=0;index<segment_particles;index+=IL){
-        double dx[3],tx[3], x[3], temp[IL][8];
-        int fx[3],nex[3];
-        int64_t temp2[IL][8];
-        int il=(index+IL<segment_particles ? IL : segment_particles-index);
-		for(int k=0; k<il; k++){
-			for(int i=0; i<3; i++){
+	for(size_t index=0;index<segment_particles;index+=IL){
+        FloatType dx[3],tx[3], x[3], temp[IL][8];
+        size_t fx[3],nex[3];
+        size_t temp2[IL][8];
+        size_t il=(index+IL<segment_particles ? IL : segment_particles-index);
+		for(size_t k=0; k<il; k++){
+			for(size_t i=0; i<3; i++){
 				x[i] = positions[3*(index+k)+i]*units;
 				fx[i]=floor(x[i]);
 				dx[i]=x[i]-fx[i];
@@ -67,7 +67,7 @@ int CiC_interpolate(double boxsize, int dims, FloatType *out, int64_t segment_pa
                 if(fx[i]<0)
                     fx[i]+=dims;
 			}
-			double mass = masses[index+k]*units;
+			FloatType mass = masses[index+k];
 			temp[k][0]=mass*tx[0]*tx[1]*tx[2];
 			temp[k][1]=mass*dx[0]*tx[1]*tx[2];
 			temp[k][2]=mass*tx[0]*dx[1]*tx[2];
@@ -89,7 +89,7 @@ int CiC_interpolate(double boxsize, int dims, FloatType *out, int64_t segment_pa
 		*to ensure synchronisation.*/
 		#pragma omp critical
 		{
-		for(int k=0; k<il; k++){
+		for(size_t k=0; k<il; k++){
 			out[temp2[k][0]]+=temp[k][0];
 			out[temp2[k][1]]+=temp[k][1];
 			out[temp2[k][2]]+=temp[k][2];

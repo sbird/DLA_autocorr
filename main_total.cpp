@@ -143,7 +143,6 @@ int main(int argc, char* argv[]){
    * HDF5s family mode, but we cannot use this, because
    * our files may not all be the same size.*/
   i_fileno = fname.find(".0.hdf5")+1;
-
   //Get the header and print out some useful things
   nrbins=floor(sqrt(3)*((FIELD_DIMS+1.0)/2.0)+1);
   const size_t size = 2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1L);
@@ -214,21 +213,25 @@ int main(int argc, char* argv[]){
              free(Pos);
              free(Mass);
           }
-          Npart=snap.load_hdf5_snapshot(ffname.c_str(), fileno,&Pos, &Mass, &hsml);
+          Npart=snap.load_hdf5_dm_snapshot(ffname.c_str(), fileno,0, &Pos, &Mass);
           if(Npart > 0){
-             /*Do the hard SPH interpolation*/
-             if(SPH_interpolate(field, comp, FIELD_DIMS, Pos, hsml, Mass, NULL, snap.box100, Npart, 1))
+             /*Do the hard interpolation*/
+             if(CiC_interpolate(snap.box100,FIELD_DIMS,field, Npart, Pos, Mass, 1))
                  exit(1);
              /*Free the particle list once we don't need it*/
              free(Pos);
              free(Mass);
-             free(hsml);
           }
           fileno++;
           if(i_fileno && i_fileno != std::string::npos){
 		    std::ostringstream convert;
 		    convert<<fileno;
-            ffname = fname.replace(i_fileno, 1, convert.str());
+            int replace = convert.str().length();
+            if (fileno == 10)
+              replace = 1;
+            if (fileno == 100)
+              replace = 2;
+            ffname = fname.replace(i_fileno, replace, convert.str());
 		  }
           else
            break;

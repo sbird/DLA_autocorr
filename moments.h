@@ -44,7 +44,7 @@ class H5Snap
 };
 
 int SPH_interpolate(FloatType * field, FloatType * comp, const int nx, float *pos, float *radii, float *value, float *weights, const double box, const long nval, const int periodic);
-int CiC_interpolate(double boxsize, int dims, FloatType *out, int64_t segment_particles, float *positions,float *mass, int extra);
+int CiC_interpolate(double boxsize, int dims, FloatType *out, size_t segment_particles, float *positions,float *mass, int extra);
 
 #ifdef __cplusplus
 extern "C" {
