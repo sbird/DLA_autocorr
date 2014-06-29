@@ -79,7 +79,7 @@ int file_readable(const char * filename)
 }
 /** Maximal size of FFT grid. 
  * In practice 1024 means we need just over 4GB, as sizeof(float)=4*/
-#define FIELD_DIMS 2048L
+#define FIELD_DIMS 4096L
 
 using namespace std;
 
