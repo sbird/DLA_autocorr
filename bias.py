@@ -76,7 +76,7 @@ class AutoCorr:
             inline = mom.readline()
         #First convert power spectrum to CAMB units
         #Box is in kpc/h, we want Mpc/h
-        scale = 1./(self.box/1000.)
+        scale = 2*math.pi/(self.box/1000.)
         self.keff = np.array(keff)[1:]*scale
         self.power = np.array(power)[1:]/scale**3
         self.count = np.array(count)[1:]
