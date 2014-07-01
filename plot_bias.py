@@ -22,11 +22,23 @@ colors = {0:"red", 1:"purple", 2:"cyan", 3:"green", 4:"greenyellow", 5:"pink", 7
 lss = {0:"--",1:":", 2:":",3:"-.", 4:"--", 5:"--",6:"--",7:"-",9:"-"}
 labels = {0:"DEF",1:"HVEL", 2:"HVNOAGN",3:"NOSN", 4:"WMNOAGN", 5:"MVEL",6:"METAL",7:"2xUV", 9:"FAST"}
 
-def plot_bias(datafile,color="blue", ls="-", label=""):
-    """Plot the bias from a snapshot"""
+def interp_power(zz, z1, z2, datafile, other):
+    """Load two snapshots and interpolate between them linearly a as log P(k)"""
+    otherstring = re.sub("005", other, datafile)
+    dd_other = bias.AutoCorr(otherstring)
     dd = bias.AutoCorr(datafile)
+    a1 = 1./(1+z1)
+    a2 = 1./(1+z2)
+    a = 1./(1+zz)
+    dd.power = 10**(np.log10(dd.power)*(a2-a)/(a2-a1) + np.log10(dd_other.power)*(a-a1)/(a2-a1))
+    dd.redshift = zz
+    return dd
+
+def plot_bias(datafile,color="blue", ls="-", label="", interp = "004"):
+    """Plot the bias from a snapshot"""
+    dd = interp_power(2.3, 2.5, 2, datafile, interp)
     total = re.sub("DLA_", "total_",datafile)
-    dd_total = bias.AutoCorr(total)
+    dd_total = interp_power(2.3, 2.5, 2, total, interp)
     plt.semilogx(dd.keff, np.sqrt(dd.power/dd_total.power),color=color,ls=ls, label=label)
     plt.ylim(1,4)
 
@@ -44,9 +56,9 @@ def bias_data_avg():
     """Plot the average scale-independent bias"""
     bval = 2.17
     berr = 0.2
-    plt.fill_between([0.01,100],bval-berr, bval+berr,color="lightgrey")
-    bval = 2.10
-    berr = 0.13
+#     plt.fill_between([0.01,100],bval-berr, bval+berr,color="lightgrey")
+#     bval = 2.10
+#     berr = 0.13
     plt.fill_between([0.01,100],bval-berr, bval+berr,color="grey")
     plt.plot([0.01,100],[bval, bval],"-", color="black")
 
@@ -90,9 +102,12 @@ def plot_all_sims():
 
 def plot_all_sims_scale_z2():
     """Plot all the sims"""
-    for ii in (0,1,3,7,9):
+    for ii in (0,1,7,9):
         base="/home/spb/data/Cosmo/Cosmo"+str(ii)+"_V6/L25n512/output/snapdir_005/DLA_autocorr_snap_005"
         plot_bias(base, colors[ii], ls=lss[ii], label=labels[ii])
+    #3 gets special treatment as no z=2.5 snapshot
+    base="/home/spb/data/Cosmo/Cosmo3_V6/L25n512/output/snapdir_005/DLA_autocorr_snap_005"
+    plot_bias(base, colors[3], ls=lss[3], label=labels[3], interp="003")
     plt.legend(loc=2, ncol=2)
 
 if __name__ == "__main__":
