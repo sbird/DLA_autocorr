@@ -6,7 +6,7 @@ import math
 from scipy.special import j0
 
 def autofrompower_3d(k, pk,rr):
-    """Cmpute the autocorrelation function a 3D dimensionful power spectrum, such as you might get from CAMB.
+    """Compute the autocorrelation function from a 3D dimensionful power spectrum, such as you might get from CAMB.
     From Challinor's structure notes:
         P(k) =  < δ δ*>
         Δ^2 = P(k) k^3/(2π^2)
