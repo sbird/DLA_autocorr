@@ -42,6 +42,14 @@ def plot_bias(datafile,color="blue", ls="-", label="", interp = "004"):
     plt.semilogx(dd.keff, np.sqrt(dd.power/dd_total.power),color=color,ls=ls, label=label)
     plt.ylim(1,4)
 
+def plot_bias_no_interp(datafile,color="blue", ls="-", label=""):
+    """Plot the bias from a snapshot"""
+    dd = bias.AutoCorr(datafile)
+    total = re.sub("DLA_", "total_",datafile)
+    dd_total = bias.AutoCorr(total)
+    plt.semilogx(dd.keff, np.sqrt(dd.power/dd_total.power),color=color,ls=ls, label=label)
+    plt.ylim(1,4)
+
 def bias_data_scale():
     """Plot the data from Font-Ribera et al 2012"""
     data = np.loadtxt("dla_bias_r.txt")
@@ -120,3 +128,4 @@ if __name__ == "__main__":
     plt.xlim(0.38, k_cut)
     plt.xticks([0.4, 0.6,0.8, 1.0, 1.3],["0.4","0.6","0.8","1.0","1.3"])
     save_figure("DLA_bias_z2")
+    plt.clf()
