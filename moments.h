@@ -4,6 +4,8 @@
 #include <map>
 #include <fftw3.h>
 #include <stdint.h>
+#include <H5Cpp.h>
+#include <valarray>
 
 #define FloatType float
 #define XH 0.76
@@ -23,6 +25,7 @@ std::map<double, double> pdf(std::map<double, int> hist, const size_t size);
 std::map<double, int> histogram(const FloatType * field, const size_t size, const double xmin, const double xmax, const int nxbins);
 void calc_delta(FloatType * field, size_t size, long realsize);
 
+hsize_t get_single_dataset(const char *name, float * data_ptr,  hsize_t data_length, H5::Group * hdf_group,int fileno);
 #ifndef N_TYPE
         #define N_TYPE 6
         #define PARTTYPE 0
@@ -42,6 +45,23 @@ class H5Snap
         int load_hdf5_snapshot(const char *ffname, int fileno, float **Pos, float ** Mass, float ** h);
         int load_hdf5_dm_snapshot(const char *ffname, int fileno, int parttype, float **Pos, float **Mass);
 };
+
+class FindHalo
+{
+    public:
+       FindHalo(std::string halo_file);
+       std::valarray<int> get_halos(const FloatType * field, const size_t field_size, const int field_dims, const double Mmax, const double Mmin, const int nbins, const double box);
+    private:
+        int nhalo;
+        int nsubhalo;
+        float* sub_mass;
+        float* sub_radii;
+        float* subsub_radii;
+        float* sub_pos;
+        float* subsub_pos;
+        int* subsub_index;
+};
+
 
 int SPH_interpolate(FloatType * field, FloatType * comp, const int nx, float *pos, float *radii, float *value, float *weights, const double box, const long nval, const int periodic);
 int CiC_interpolate(double boxsize, int dims, FloatType *out, size_t segment_particles, float *positions,float *mass, int extra);

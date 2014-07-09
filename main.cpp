@@ -188,6 +188,10 @@ int main(int argc, char* argv[]){
         return 1;
   }
 
+  std::string grpname = fname;
+  grpname = grpname.replace(grpname.find("snapdir_"), 8,"groups_");
+  grpname = grpname.replace(grpname.find("snap_"), 5,"fof_subhalo_tab_");
+  FindHalo halos(grpname);
   /*Loop over files. Keep going until we run out, skipping over broken files.
    * The call to file_readable is an easy way to shut up HDF5's error message.*/
   while(1){
@@ -240,6 +244,8 @@ int main(int argc, char* argv[]){
   /*Now make a power spectrum*/
   /*First make it a boolean array of where there is a DLA*/
   discretize(field, size);
+  //Then find halo cross-sections
+  std::valarray<int> binned_halos = halos.get_halos(field, size, FIELD_DIMS, 5e8, 1e13, 30,snap.box100);
   /*Then divide by the mean to make a delta*/
   calc_delta(field, size, FIELD_DIMS*FIELD_DIMS*FIELD_DIMS);
   //BE CAREFUL WITH FFTW!
@@ -267,6 +273,12 @@ int main(int argc, char* argv[]){
     if(count[i])
       file<<keffs[i]<<" "<<power[i]<<" "<<count[i]<<std::endl;
   }
+  file << "==" <<std::endl;
+  for(int i=0;i<30;i++)
+  {
+     file<<(i+0.5) /30 * (log10(1e13) - log10(5e8)) + log10(5e8)<<" "<<binned_halos[i]<<std::endl;
+  }
+
   file.close();
   //Free memory
   free(power);
