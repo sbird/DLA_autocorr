@@ -171,9 +171,9 @@ FindHalo::FindHalo(std::string halo_file)
         //Allocate memory
         sub_mass = (float *)malloc(nhalo*sizeof(float));
         sub_radii = (float *)malloc(nhalo*sizeof(float));
-        sub_pos = (float *)malloc(nhalo*sizeof(float));
+        sub_pos = (float *)malloc(3*nhalo*sizeof(float));
         subsub_radii = (float *)malloc(nsubhalo*sizeof(float));
-        subsub_pos = (float *)malloc(nsubhalo*sizeof(float));
+        subsub_pos = (float *)malloc(3*nsubhalo*sizeof(float));
         subsub_index = (int *)malloc(nsubhalo*sizeof(int));
         if (subsub_index == NULL){
             fprintf(stderr, "Could not allocate halo memory\n");
