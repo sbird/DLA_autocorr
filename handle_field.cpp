@@ -123,9 +123,9 @@ inline bool is_halo_close(const int j, const double xcoord, const double ycoord,
                 zpos = box-zpos;
 
             //Distance
-            const double dd = xpos*xpos + ypos*ypos + zpos*zpos;
+            const float dd = xpos*xpos + ypos*ypos + zpos*zpos;
             //Is it close?
-            const double rvir = sub_radii[j]*sub_radii[j]+grid*grid;
+            const float rvir = sub_radii[j]*sub_radii[j];//+grid*grid/4.;
             //We will only be within the virial radius for one halo
             if (dd <= rvir) {
                 return true;
@@ -229,11 +229,12 @@ FindHalo::FindHalo(std::string halo_file)
 
 /** Find a histogram of the number of DLAs around each halo
 */
-std::valarray<int> FindHalo::get_halos(const FloatType * field, const size_t field_size, const int field_dims, const double Mmax, const double Mmin, const int nbins, const double box)
+std::valarray<int> FindHalo::get_halos(const FloatType * field, const size_t field_size, const int field_dims, const double Mmin, const double Mmax, const int nbins, const double box)
 {
     //Each entry i is mass between (i,i+1) / nbins * (log(Mmax) - log(Mmin)) + log(Mmin)
     std::valarray<int> halo_hist(0,nbins);
     const double grid = box/field_dims;
+    int field_dlas = 0, tot_dlas=0;
 
     //Store index in a map as the easiest way of sorting it
     std::map<const double, const int> sort_mass;
@@ -249,7 +250,7 @@ std::valarray<int> FindHalo::get_halos(const FloatType * field, const size_t fie
         sort_sub_index.insert(std::pair<const int32_t, const int>(subsub_index[i],i));
     }
     //field_size can be the true allocated array size since all the extra bits are zero at this point
-    #pragma omp parallel for
+    #pragma omp parallel for reduction(+:tot_dlas) reduction(+:field_dlas)
     for (size_t i = 0; i< field_size; i++)
     {
         //Don't care about not DLAs.
@@ -261,18 +262,23 @@ std::valarray<int> FindHalo::get_halos(const FloatType * field, const size_t fie
         const int yoff = ( (i - zoff)/(2*field_dims/2+EXTRA) % field_dims);
         const double ycoord = (box/field_dims) * yoff;
         const double xcoord = (box/field_dims) * (((i - zoff)/(2*field_dims/2+EXTRA) - yoff ) / field_dims);
-
+        if(xcoord < 0 || xcoord > box || ycoord < 0 || ycoord > box || zcoord < 0 || zcoord > box){
+            printf("Bad coord: %g %g %g\n",xcoord,ycoord, zcoord);
+            exit(1);
+        }
+        tot_dlas++;
         // Largest halo where the particle is within r_vir.
         int nearest_halo=-1;
         for (std::map<const double,const int>::const_iterator it = sort_mass.begin(); it != sort_mass.end(); ++it)
         {
             if (is_halo_close(it->second, xcoord, ycoord, zcoord, sub_pos, sub_radii, box, grid)) {
+//                 printf("(%g %g %g) halo: %d rad %g pos %g %g %g\n",xcoord, ycoord, zcoord, it->second, sub_radii[it->second], sub_pos[3*it->second],sub_pos[3*it->second+1], sub_pos[3*it->second+2]);
                 nearest_halo = it->second;
                 break;
             }
         }
         //If no halo found, loop over subhalos.
-        if (nearest_halo <= 0){
+        if (nearest_halo < 0){
           for (std::multimap<const int32_t,const int>::const_iterator it = sort_sub_index.begin(); it != sort_sub_index.end(); ++it){
             //If close to a subhalo, assign to the parent halo.
             if (is_halo_close(it->second, xcoord, ycoord, zcoord, subsub_pos, subsub_radii, box, grid)) {
@@ -283,7 +289,8 @@ std::valarray<int> FindHalo::get_halos(const FloatType * field, const size_t fie
         }
         if (nearest_halo >= 0){
             double mass = sub_mass[nearest_halo];
-            int bin = nbins*(log10(mass) - log10(Mmin))/(log10(Mmax) - log10(Mmin));
+            //The +10 converts from gadget 1e10 solar mass units to solar masses.
+            int bin = nbins*(log10(mass)+10 - log10(Mmin))/(log10(Mmax) - log10(Mmin));
             if ((bin >= nbins) || (bin < 0)){
                 fprintf(stderr,"Suggested bin %d (mass %g) out of array\n",bin, mass);
                 exit(1);
@@ -293,6 +300,10 @@ std::valarray<int> FindHalo::get_halos(const FloatType * field, const size_t fie
                 halo_hist[bin] += 1;
             }
         }
+        else{
+            field_dlas++;
+        }
     }
+    printf("Field DLAs: %d tot_dlas %d\n",field_dlas, tot_dlas);
     return halo_hist;
 }

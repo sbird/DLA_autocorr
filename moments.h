@@ -50,7 +50,7 @@ class FindHalo
 {
     public:
        FindHalo(std::string halo_file);
-       std::valarray<int> get_halos(const FloatType * field, const size_t field_size, const int field_dims, const double Mmax, const double Mmin, const int nbins, const double box);
+       std::valarray<int> get_halos(const FloatType * field, const size_t field_size, const int field_dims, const double Mmin, const double Mmax, const int nbins, const double box);
     private:
         int nhalo;
         int nsubhalo;
