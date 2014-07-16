@@ -101,7 +101,6 @@ double convert_pdf_units(const double redshift, const double box, const double h
  * allocates FFT memory and creates a plan, calls read_fieldize and powerspectrum, prints the P(k) 
  * to a file, and then frees the memory*/
 int main(int argc, char* argv[]){
-  int nrbins;
   double *power, *keffs;
   FloatType *field, *comp;
   int *count; 
@@ -144,7 +143,7 @@ int main(int argc, char* argv[]){
    * our files may not all be the same size.*/
   i_fileno = fname.find(".0.hdf5")+1;
   //Get the header and print out some useful things
-  nrbins=floor(sqrt(3)*((FIELD_DIMS+1.0)/2.0)+1);
+  const int nrbins=2*floor(sqrt(3)*((FIELD_DIMS+1.0)/2.0)+1);
   const size_t size = 2*FIELD_DIMS*FIELD_DIMS*(FIELD_DIMS/2+1L);
   //Memory for the field
   /* Allocating a bit more memory allows us to do in-place transforms.*/

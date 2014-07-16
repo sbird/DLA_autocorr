@@ -40,38 +40,20 @@ int powerspectrum(int dims, fftwf_plan* pl,fftwf_complex *outfield, int nrbins, 
     const size_t fdims2 = dims*fdims;
     /*How many bins per unit interval in k?*/
     const int binsperunit=nrbins/(floor(sqrt(3)*abs((dims+1.0)/2.0)+1));
-    /*Half the bin width*/
-    const float bwth=1.0/(2.0*binsperunit);
     fftwf_execute(*pl);
     memset(power, 0, nrbins*sizeof(double));
     memset(count, 0, nrbins*sizeof(int));
-	/* Now we compute the powerspectrum in each direction.
-	 * FFTW is unnormalised, so we need to scale by the length of the array
-	 * (we do this later). */
-	for(int i=0; i< nrbins/2; i++){
-		/* bin center (k) is i+a.
-		 * a is bin width/2, is 0.5
-		 * k_eff is k+ 2a^2k/(a^2+3k^2) */
-		float k=i*2.0*bwth;
-		keffs[i]=(k+bwth)+2*pow(bwth,2)*(k+bwth)/(pow(bwth,2)+3*pow((k+bwth),2));
-	}
-	/*After this point, the number of modes is decreasing.*/
-	for(int i=nrbins/2; i< nrbins; i++){
-		/* bin center (k) is i+a.
-		 * a is bin width/2, is 0.5
-		 * k_eff is k+ 2a^2k/(a^2+3k^2) */
-		float k=i*2.0*bwth;
-		keffs[i]=(k+bwth)-2*pow(bwth,2)*(k+bwth)/(pow(bwth,2)+3*pow((k+bwth),2));
-	}
+    memset(keffs, 0, nrbins*sizeof(double));
 	#pragma omp parallel 
 	{
 		float powerpriv[nrbins];
 		int countpriv[nrbins];
+        float keffpriv[nrbins];
         memset(powerpriv, 0, nrbins*sizeof(float));
         memset(countpriv, 0, nrbins*sizeof(int));
 		/* Want P(k)= F(k).re*F(k).re+F(k).im*F(k).im
 		 * Use the symmetry of the real fourier transform to half the final dimension.*/
-		#pragma omp for schedule(static, 128) nowait
+		#pragma omp for
 		for(int i=0; i<dims;i++){
 			size_t indx=i*fdims2;
 			for(int j=0; j<dims; j++){
@@ -84,12 +66,14 @@ int powerspectrum(int dims, fftwf_plan* pl,fftwf_complex *outfield, int nrbins, 
 				int psindex=floor(binsperunit*kk);
 				powerpriv[psindex]+=(pow(outfield[index][0],2)+pow(outfield[index][1],2))*pow(invwindow(KVAL(i),KVAL(j),0,dims),2);
 				countpriv[psindex]++;
+                keffpriv[psindex]+=kk;
 				/*Now do the k=N/2 mode*/
 				index=indx+indy+dims/2;
 				kk=sqrt(pow(KVAL(i),2)+pow(KVAL(j),2)+pow(KVAL(dims/2),2));
 				psindex=floor(binsperunit*kk);
 				powerpriv[psindex]+=(pow(outfield[index][0],2)+pow(outfield[index][1],2))*pow(invwindow(KVAL(i),KVAL(j),KVAL(dims/2),dims),2);
 				countpriv[psindex]++;
+                keffpriv[psindex]+=kk;
 				/*Now do the rest. Because of the symmetry, each mode counts twice.*/
 				for(int k=1; k<dims/2; k++){
 					index=indx+indy+k;
@@ -99,6 +83,7 @@ int powerspectrum(int dims, fftwf_plan* pl,fftwf_complex *outfield, int nrbins, 
 					 * See my notes for the reason why.*/
 					powerpriv[psindex]+=2*(pow(outfield[index][0],2)+pow(outfield[index][1],2))*pow(invwindow(KVAL(i),KVAL(j),KVAL(k),dims),2);
 					countpriv[psindex]+=2;
+                    keffpriv[psindex]+=2*kk;
 				}
 			}
 		}
@@ -107,6 +92,7 @@ int powerspectrum(int dims, fftwf_plan* pl,fftwf_complex *outfield, int nrbins, 
 			for(int i=0; i< nrbins;i++){
 				power[i]+=powerpriv[i];
 				count[i]+=countpriv[i];
+				keffs[i]+=keffpriv[i];
 			}
 		}
 	}
@@ -116,6 +102,7 @@ int powerspectrum(int dims, fftwf_plan* pl,fftwf_complex *outfield, int nrbins, 
 			power[i]/=dims3;
 			power[i]/=dims3;
 			power[i]/=count[i];
+            keffs[i]/=count[i];
 		}
 	}
 	return 0;

@@ -125,7 +125,7 @@ inline bool is_halo_close(const int j, const double xcoord, const double ycoord,
             //Distance
             const float dd = xpos*xpos + ypos*ypos + zpos*zpos;
             //Is it close?
-            const float rvir = sub_radii[j]*sub_radii[j];//+grid*grid/4.;
+            const float rvir = sub_radii[j]*sub_radii[j]+grid*grid/4.;
             //We will only be within the virial radius for one halo
             if (dd <= rvir) {
                 return true;
