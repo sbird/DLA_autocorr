@@ -12,6 +12,7 @@ import numpy as np
 import re
 import math
 import os.path as path
+from biasmodel import plot_dla_bias_z23,NonLinearDLABias,DLABias
 from save_figure import save_figure
 
 #The 5Mpc cut-off used in Font-Ribera 2012
@@ -41,6 +42,7 @@ def plot_bias(datafile,color="blue", ls="-", label="", interp = "004"):
     dd_total = interp_power(2.3, 2.5, 2, total, interp)
     plt.semilogx(dd.keff, np.sqrt(dd.power/dd_total.power),color=color,ls=ls, label=label)
     plt.ylim(1,4)
+    return (dd.keff, np.sqrt(dd.power/dd_total.power))
 
 def plot_bias_no_interp(datafile,color="blue", ls="-", label=""):
     """Plot the bias from a snapshot"""
@@ -68,7 +70,7 @@ def bias_data_avg():
 #     bval = 2.10
 #     berr = 0.13
     plt.fill_between([0.01,100],bval-berr, bval+berr,color="grey")
-    plt.plot([0.01,100],[bval, bval],"-", color="black")
+#     plt.plot([0.01,100],[bval, bval],"-", color="black")
 
 
 def get_avg_bias(datafile):
@@ -112,20 +114,36 @@ def plot_all_sims_scale_z2():
     """Plot all the sims"""
     for ii in (0,1,7,9):
         base="/home/spb/data/Cosmo/Cosmo"+str(ii)+"_V6/L25n512/output/snapdir_005/DLA_autocorr_snap_005"
-        plot_bias(base, colors[ii], ls=lss[ii], label=labels[ii])
+        if ii == 7:
+            (keff, dbias) = plot_bias(base, colors[ii], ls=lss[ii], label=labels[ii])
+        else:
+            plot_bias(base, colors[ii], ls=lss[ii], label=labels[ii])
+
     #3 gets special treatment as no z=2.5 snapshot
     base="/home/spb/data/Cosmo/Cosmo3_V6/L25n512/output/snapdir_005/DLA_autocorr_snap_005"
     plot_bias(base, colors[3], ls=lss[3], label=labels[3], interp="003")
-    plt.legend(loc=2, ncol=2)
+    return (keff, dbias)
 
 if __name__ == "__main__":
-    #bias_data_scale()
     bias_data_avg()
-    plot_all_sims_scale_z2()
+    (keff, dbias) = plot_all_sims_scale_z2()
+    (kk,dlabias_halo, dla_bias) = plot_dla_bias_z23(7)
+#     bbb = NonLinearDLABias(2.3, top=13, bottom=np.log10(3e8))
+#     (kk, dlabias_halo) = bbb.dla_bias()
+    plt.plot(kk,dlabias_halo, color="blue", ls=":", label="Halofit")
+    bbb = DLABias(2.3, top=13, bottom=np.log10(3e8))
+    print "Linear DLA bias",bbb.dla_bias()
+    ind = np.where(np.logical_and(kk > 2*math.pi/100, kk < keff[0]))
+    ind2 = np.where(np.logical_and(kk > keff[0], kk < k_cut))
+    i2 = np.where(keff < k_cut)
+    print "Extrapolated DLA bias for 2xUV", (np.mean(dlabias_halo[ind])*np.size(ind)+np.mean( dbias[i2])*np.size(ind2))/(np.size(ind)+np.size(ind2))
+    plt.legend(loc=1, ncol=2)
+    bias_data_scale()
     plt.xlabel("k (h/Mpc)")
     plt.ylabel(r"$\mathrm{b}_\mathrm{D}$")
-    plt.ylim(1.0,4.5)
-    plt.xlim(0.38, k_cut)
-    plt.xticks([0.4, 0.6,0.8, 1.0, 1.3],["0.4","0.6","0.8","1.0","1.3"])
+    plt.ylim(1.0,5)
+    plt.xlim(0.0715, 2)
+#     plt.xticks([0.4, 0.6,0.8, 1.0, 1.3],["0.4","0.6","0.8","1.0","1.3"])
+    plt.xticks([0.1, 0.2, 0.5, 1.0, 2.0],["0.1","0.2","0.5","1.0","2.0"])
     save_figure("DLA_bias_z2")
     plt.clf()

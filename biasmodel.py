@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 """This module calculates the halo bias from the fitting formula of Tinker 2010 (http://arxiv.org/abs/1001.3162)"""
 
-from plot_bias import plot_bias,bias_data_avg,bias_data_scale
-
 import halo_mass_function as hm
 import numpy as np
 import halofit
 import math
-import matplotlib.pyplot as plt
 from save_figure import save_figure
 import boxhi
 import myname
@@ -51,7 +48,7 @@ class HaloBias(hm.HaloMassFunction):
 
 class DLABias(HaloBias):
     """Module for computing DLA bias"""
-    def __init__(self, redshift, beta = 1.00, sig10 = 2.19, top = 12.5, bottom = 8.5, omega_m=0.27, omega_b=0.045, omega_l=0.73, hubble=0.7, ns=0.95, sigma8=0.8, log_mass_lim=(6, 20) ):
+    def __init__(self, redshift, beta = 1.00, sig10 = 2.19, top = 12.9, bottom = 8.5, omega_m=0.273, omega_b=0.045, omega_l=0.727, hubble=0.7, ns=0.95, sigma8=0.8, log_mass_lim=(6, 20) ):
         HaloBias.__init__(self,redshift,omega_m, omega_b,omega_l,hubble, ns,sigma8,log_mass_lim=log_mass_lim)
         #Mean value of beta from the simulations. At z=4,3,2: 1.02, 1.04, 1.00
         self.beta = beta
@@ -62,7 +59,10 @@ class DLABias(HaloBias):
 
     def sigma_DLA(self, mass):
         """Return the DLA cross-section from Bird et al 2014"""
-        return self.sig10 * (mass / 1e10)**self.beta
+        sDLA =  self.sig10 * (mass / 1e10)**self.beta
+#         ind = np.where(mass > 1e13)
+#         sDLA[ind] = sDLA[ind][0]
+        return sDLA
 
     def dla_bias(self):
         """DLA bias as the convolution of the DLA cross-section with the number of halos:
@@ -119,10 +119,19 @@ def nonlinearlyabias(bias, omega_m = 0.27, omega_l = 0.73):
     assuming the lyman alpha forest is a delta function of scale"""
     (k, Delta, zz) = halofit.load_pkfile("/home/spb/data/Cosmo/ICs/codes/camb/spb_rescale/illustris_matterpower_2.3.dat")
     hfit = halofit.HaloFit(k, bias**2*Delta, zz, omega_m, omega_l)
-    hfit_nobias = halofit.HaloFit(k, Delta, zz, omega_m, omega_l)
+#     hfit_nobias = halofit.HaloFit(k, Delta, zz, omega_m, omega_l)
     dla_biask = hfit.do_nonlin()
-    powerk = hfit_nobias.do_nonlin()
+    #Use the linear theory power because that is what is used in FR 12
+    powerk = Delta #hfit_nobias.do_nonlin()
     return (k, np.sqrt(dla_biask / powerk))
+
+def plot_dla_halo_bias(sim, snap, Mmin=8, Mmax=13, nbins=40):
+    """Plot a nonlinear bias model from histogram of the halo masses of DLA hosts. Each bin contains the fraction
+       of DLA cells associated with halos in this mass bin"""
+    bbb = NonLinearHaloBias(2.3, top=13, bottom=8)
+    bbb.dla_bias()
+    print "DLA bias is:", dla_bias
+    return (kk, dla_biask, powerk, dla_bias)
 
 def plot_dla_halo_bias(sim, snap, Mmin=8, Mmax=13, nbins=40, minpart = 0, dist=2.):
     """Plot a nonlinear bias model from histogram of the halo masses of DLA hosts. Each bin contains the fraction
@@ -132,10 +141,10 @@ def plot_dla_halo_bias(sim, snap, Mmin=8, Mmax=13, nbins=40, minpart = 0, dist=2
     ind = np.where(hspec.sigDLA > 0)
     sigs = hspec.sigDLA[ind]/1e6
     (kk, Delta, zz) = halofit.load_pkfile("/home/spb/data/Cosmo/ICs/codes/camb/spb_rescale/illustris_matterpower_2.3.dat")
-    bbb = HaloBias(zz, 0.27, 0.045, 0.73, 0.71, 0.97)
+    bbb = HaloBias(zz, 0.273, 0.045, 0.727, 0.71, 0.97)
     ii = np.where(hspec.real_sub_mass[ind] > 1e8)
     biases = bbb.halo_bias(hspec.real_sub_mass[ind][ii])
-    dla_bias = np.sqrt(np.sum(sigs[ii]*biases**2)/ np.sum(sigs[ii]))
+    dla_bias = np.sum(sigs[ii]*biases)/ np.sum(sigs[ii])
     mbins = np.logspace(Mmin,Mmax,nbins)
     dla_biask = np.zeros_like(kk)
     hfit = halofit.HaloFit(kk, Delta, zz, 0.27, 0.73)
@@ -147,28 +156,42 @@ def plot_dla_halo_bias(sim, snap, Mmin=8, Mmax=13, nbins=40, minpart = 0, dist=2
         tsig = np.sum(sigs[ii])
         dla_biask += np.sqrt(hfit.do_nonlin())*tsig
     print "DLA bias is:", dla_bias
-    dlabias_halo = dla_biask / powerk
-    return (kk, dlabias_halo)
+    return (kk, dla_biask, powerk, dla_bias)
 
-if __name__ == "__main__":
-    #Measured b_F ( 1+ beta_F ) = -0.336
-    bF = -0.336/2
-    (k, lyabias) = nonlinearlyabias(bF)
-    base="/home/spb/data/Cosmo/Cosmo7_V6/L25n512/output/snapdir_005/DLA_autocorr_snap_005"
-    plot_bias(base, "blue", ls="-", label="DEF")
-    (kk, dlabias_halo4) = plot_dla_halo_bias(7, 4)
-    (kk, dlabias_halo5) = plot_dla_halo_bias(7, 5)
+def plot_dla_bias_z23(sim, Mmin=8, Mmax=13, nbins=40, minpart = 0, dist=2., interp=4, interpz=2.5):
+    """Interpolate as a function of redshift"""
+    (kk, dlabiask, powerk, dla_bias) = plot_dla_halo_bias(sim, interp)
+    (kk, dlabiask, powerk, dla_bias) = plot_dla_halo_bias(sim, 5)
     a1 = 1./(1+2.5)
     a2 = 1./(1+2)
     a = 1./(1+2.3)
-    dlabias_halo = 10**(np.log10(dlabias_halo5)*(a2-a)/(a2-a1) + np.log10(dlabias_halo4)*(a-a1)/(a2-a1))
+    dlabias_halo = 10**(np.log10(dlabiask)*(a2-a)/(a2-a1) + np.log10(dlabiask)*(a-a1)/(a2-a1))
+    power_halo = 10**(np.log10(powerk)*(a2-a)/(a2-a1) + np.log10(powerk)*(a-a1)/(a2-a1))
+    dla_bias = 10**(np.log10(dla_bias)*(a2-a)/(a2-a1) + np.log10(dla_bias)*(a-a1)/(a2-a1))
+    return (kk, dlabias_halo/power_halo, dla_bias)
+
+
+if __name__ == "__main__":
+
+    from plot_bias import plot_bias,bias_data_avg,bias_data_scale
+    import matplotlib.pyplot as plt
+    #Measured b_F ( 1+ beta_F ) = -0.336
+#     bF = -0.336/2
+#     (k, lyabias) = nonlinearlyabias(bF)
+    (kk,dlabias_halo, dla_bias) = plot_dla_bias_z23(7)
     plt.plot(kk,dlabias_halo, color="red", ls="--", label="Halofit")
+    base="/home/spb/data/Cosmo/Cosmo7_V6/L25n512/output/snapdir_005/DLA_autocorr_snap_005"
+    plot_bias(base, "blue", ls="-", label="2xUV")
+#     (k,dlabias_halo, dla_bias) = plot_dla_bias_z23(1,interp=3, interpz=3.)
+#     plt.plot(kk,dlabias_halo, color="purple", ls="-.", label="Hf-HVEL")
+#     base="/home/spb/data/Cosmo/Cosmo1_V6/L25n512/output/snapdir_005/DLA_autocorr_snap_005"
+#     plot_bias(base, "purple", ls="-", label="HVEL")
+#     plt.plot(k, -dlabias_halo*lyabias/bF, color="green", ls="-.", label="Forest")
 #     bb = NonLinearDLABias(2.3)
 #     (k, dlabias) = bb.dla_bias()
 #     plt.plot(k, dlabias, color="orange", ls="--")
-    plt.plot(k, -dlabias_halo*lyabias/bF, color="green", ls="-.", label="Forest")
     bias_data_scale()
-    plt.legend(loc=1, ncol=2)
+    plt.legend(loc=1, ncol=1)
 #     bias_data_avg()
     plt.xlim(0.06, 2.5)
     plt.ylim(1,4.5)
