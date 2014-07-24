@@ -68,7 +68,7 @@ class AutoCorr:
         count = []
 
         inline = mom.readline()
-        while inline != "" and inline != "==":
+        while inline != "" and inline != "==\n":
             ll = inline.split()
             keff.append(float(ll[0]))
             power.append(float(ll[1]))
