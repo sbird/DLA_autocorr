@@ -26,13 +26,16 @@ ifeq (icc,$(findstring icc,${CC}))
   CFLAGS +=-O2 -g -c -w1 -openmp -fpic -DNO_KAHAN
   LINK +=${CXX} -openmp
 else
-  CFLAGS +=-O3 -g -c -Wall -fopenmp -fPIC -DNO_KAHAN -ffast-math
+  CFLAGS +=-Og -g -c -Wall -fopenmp -fPIC -DNO_KAHAN -ffast-math
   LINK +=${CXX} -openmp $(PRO)
   LFLAGS += -lm -lgomp
 endif
+#Python include path
+PYINC=$(shell pkg-config --cflags python2)
+
 .PHONY: all clean
 
-all: moments total
+all: moments total _autocorr_priv.so
 
 clean: 
 	rm *.o moments total
@@ -48,3 +51,10 @@ moments: main.o read_hdf_snapshot.o SPH_fieldize.o handle_field.o powerspectrum.
 
 total: main_total.o read_hdf_snapshot.o SPH_fieldize.o CiC_fieldize.o handle_field.o powerspectrum.o moments.h
 	$(LINK) $(LFLAGS) -lfftw3f -lfftw3f_threads -lhdf5 -lhdf5_cpp $^ -o $@
+
+py_autocorr.o: py_autocorr.cpp
+	$(CXX) $(CFLAGS) -fno-strict-aliasing -DNDEBUG $(PYINC) -c $< -o $@
+
+_autocorr_priv.so: py_autocorr.o
+	$(LINK) $(LFLAGS) -shared $^ -o $@ -lgsl -lgslcblas 
+
