@@ -74,24 +74,24 @@ PyObject * _autocorr_spectra(PyObject *self, PyObject *args)
     #pragma omp parallel
     {
         const int tid = omp_get_thread_num();
-	const double binsz = nbins / (npix * pixsz*sqrt(3));
+        const double binsz = nbins / (npix * pixsz*sqrt(3));
         #pragma omp for
         for(int b=0; b<nspectra; b++){
             for(int a=0; a<nspectra; a++){
-	      double sdist2 = spec_distance2((double *) PyArray_GETPTR2(spos,0, a), (double *) PyArray_GETPTR2(spos,0, b));
-	      double * speca = (double *) PyArray_GETPTR2(slist,0, a);
-	      double * specb = (double *) PyArray_GETPTR2(slist,0, b);
-	      for(int bb=0; bb<npix; bb++){
-		for(int aa=0; aa<npix; aa++){
+                double sdist2 = spec_distance2((double *) PyArray_GETPTR2(spos,0, a), (double *) PyArray_GETPTR2(spos,0, b));
+                double * speca = (double *) PyArray_GETPTR2(slist,0, a);
+                double * specb = (double *) PyArray_GETPTR2(slist,0, b);
+                for(int bb=0; bb<npix; bb++){
+                    for(int aa=0; aa<npix; aa++){
                         double rr = sqrt(sdist2+ (bb-aa)*(bb-aa)*pixsz);
                         //Which bin to add this one to?
                         int cbin = floor(rr * binsz);
                         autocorr_C[tid][cbin]+=speca[aa]*specb[bb];
-			modecount_C[tid][cbin]+=1;
-		}
-	      }
+                        modecount_C[tid][cbin]+=1;
+                    }
+                }
             }
-        }
+       }
     }
     PyArrayObject *autocorr = (PyArrayObject *) PyArray_SimpleNew(1,&npnbins,NPY_DOUBLE);
     PyArray_FILLWBYTE(autocorr, 0);
@@ -168,16 +168,24 @@ PyObject * _modecount(PyObject *self, PyObject *args)
     int nbins;
     if(!PyArg_ParseTuple(args, "ii",&box, &nbins) )
         return NULL;
-    int count[nbins];
-    memset(count,0,nbins*sizeof(int));
+    int count[nbins]={0};
     npy_intp npnbins = nbins;
-    for (int a=0; a<box;a++)
-    for (int b=0; b<box;b++)
-    for (int x=0; x<box;x++)
-    for (int y=0; y<box;y++){
-       double rr = sqrt((x-a)*(x-a)+(y-b)*(y-b));
-       int cbin = floor(rr * nbins / (1.*box*sqrt(2.)));
-       count[cbin]++;
+    // Special treatment for x=0 mode which would otherwise be double-counted
+    // x=y=0
+    count[0] = box*box;
+    for (int y=1; y<box;y++){
+       int cbin = floor(y * nbins / (1.*box*sqrt(2.)));
+       count[cbin]+=2*(box-y)*box;
+    }
+    for (int x=1; x<box;x++){
+        // Special treatment for y=0 mode which would otherwise be double-counted
+        int cbin = floor(x * nbins / (1.*box*sqrt(2.)));
+        count[cbin]+=2*(box-x)*box;
+        for (int y=1; y<box;y++){
+           double rr = sqrt(x*x+y*y);
+           int cbin = floor(rr * nbins / (1.*box*sqrt(2.)));
+           count[cbin]+=4*(box-y)*(box-x);
+        }
     }
     PyArrayObject *pycount = (PyArrayObject *) PyArray_SimpleNew(1,&npnbins,NPY_INT);
     for(int nn=0; nn< nbins; nn++){
@@ -218,8 +226,8 @@ PyObject * _modecount_monte_carlo(PyObject *self, PyObject *args)
     for(int nn=0; nn< nbins; nn++){
         //Correct for samples
         *(int *)PyArray_GETPTR1(pycount,nn)=(total*count[nn])/nsamples;
-        if (count[nn] < 10)
-            printf("Not enough samples count[%d] = %d\n", nn, count[nn]);
+//         if (count[nn] < 10)
+//             printf("Not enough samples count[%d] = %d\n", nn, count[nn]);
     }
     //Note: the largest-scale modes near the box should be computed 
     //directly
