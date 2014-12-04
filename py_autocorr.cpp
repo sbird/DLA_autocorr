@@ -161,6 +161,116 @@ PyObject * _autocorr_list(PyObject *self, PyObject *args)
     return Py_BuildValue("O", autocorr);
 }
 
+/* Count the modes present in a list of spectra
+   spos -  positions of the spectra: 2x nspectra: (x, y).
+   nbins - number of bins in output autocorrelation function
+   pixsz - Size of a pixel in units of the cofm.
+   npix - number of pixels
+*/
+PyObject * _modecount_spectra(PyObject *self, PyObject *args)
+{
+    PyArrayObject *spos;
+    int nbins, npix;
+    double pixsz;
+    if(!PyArg_ParseTuple(args, "O!dii",&PyArray_Type, &spos, &pixsz, &nbins, &npix) )
+    {
+        PyErr_SetString(PyExc_AttributeError, "Incorrect arguments: use spos, pixsz, nbins\n");
+        return NULL;
+    }
+    if(check_type(spos, NPY_DOUBLE))
+    {
+          PyErr_SetString(PyExc_AttributeError, "Input arrays are not float64.\n");
+          return NULL;
+    }
+    npy_intp nspectra = PyArray_DIM(spos,1);
+    //Bin autocorrelation, must cover sqrt(dims)*size
+    //so each bin has size sqrt(dims)*size /nbins
+    const int nproc = omp_get_num_procs();
+    int modecount_C[nproc][nbins];
+    memset(modecount_C,0,nproc*nbins*sizeof(int));
+    #pragma omp parallel
+    {
+        const int tid = omp_get_thread_num();
+        const double binsz = nbins / (npix * pixsz*sqrt(3));
+        #pragma omp for
+        for(int b=0; b<nspectra; b++){
+            for(int a=0; a<nspectra; a++){
+                double sdist2 = spec_distance2((double *) PyArray_GETPTR2(spos,0, a), (double *) PyArray_GETPTR2(spos,0, b));
+                for(int bb=0; bb<npix; bb++){
+                    for(int aa=0; aa<npix; aa++){
+                        double rr = sqrt(sdist2+ (bb-aa)*(bb-aa)*pixsz);
+                        //Which bin to add this one to?
+                        int cbin = floor(rr * binsz);
+                        modecount_C[tid][cbin]+=1;
+                    }
+                }
+            }
+        }
+    }
+    npy_intp npnbins = nbins;
+    PyArrayObject *modecount = (PyArrayObject *) PyArray_SimpleNew(1,&npnbins,NPY_INT);
+    PyArray_FILLWBYTE(modecount, 0);
+
+    for(int tid=0; tid < nproc; tid++){
+        for(int nn=0; nn< nbins; nn++){
+            *(int *)PyArray_GETPTR1(modecount,nn)+=modecount_C[tid][nn];
+        }
+    }
+    return Py_BuildValue("O", modecount);
+}
+
+//Count the modes assuming the spectra are on a regularly spaced grid
+PyObject * _modecount_spectra_regular(PyObject *self, PyObject *args)
+{
+    PyArrayObject *spos;
+    int nbins, npix;
+    double pixsz;
+    if(!PyArg_ParseTuple(args, "O!dii",&PyArray_Type, &spos, &pixsz, &nbins, &npix) )
+    {
+        PyErr_SetString(PyExc_AttributeError, "Incorrect arguments: use spos, pixsz, nbins\n");
+        return NULL;
+    }
+    if(check_type(spos, NPY_DOUBLE))
+    {
+          PyErr_SetString(PyExc_AttributeError, "Input arrays are not float64.\n");
+          return NULL;
+    }
+    npy_intp nspectra = PyArray_DIM(spos,1);
+    //Bin autocorrelation, must cover sqrt(dims)*size
+    //so each bin has size sqrt(dims)*size /nbins
+    const int nproc = omp_get_num_procs();
+    int modecount_C[nproc][nbins];
+    memset(modecount_C,0,nproc*nbins*sizeof(int));
+    #pragma omp parallel
+    {
+        const int tid = omp_get_thread_num();
+        const double binsz = nbins / (npix * pixsz*sqrt(3));
+        #pragma omp for
+        for(int b=0; b<nspectra; b++){
+            for(int a=0; a<nspectra; a++){
+                double sdist2 = spec_distance2((double *) PyArray_GETPTR2(spos,0, a), (double *) PyArray_GETPTR2(spos,0, b));
+                for(int bb=0; bb<npix; bb++){
+                    for(int aa=0; aa<npix; aa++){
+                        double rr = sqrt(sdist2+ (bb-aa)*(bb-aa)*pixsz);
+                        //Which bin to add this one to?
+                        int cbin = floor(rr * binsz);
+                        modecount_C[tid][cbin]+=1;
+                    }
+                }
+            }
+        }
+    }
+    npy_intp npnbins = nbins;
+    PyArrayObject *modecount = (PyArrayObject *) PyArray_SimpleNew(1,&npnbins,NPY_INT);
+    PyArray_FILLWBYTE(modecount, 0);
+
+    for(int tid=0; tid < nproc; tid++){
+        for(int nn=0; nn< nbins; nn++){
+            *(int *)PyArray_GETPTR1(modecount,nn)+=modecount_C[tid][nn];
+        }
+    }
+    return Py_BuildValue("O", modecount);
+}
 
 PyObject * _modecount(PyObject *self, PyObject *args)
 {
