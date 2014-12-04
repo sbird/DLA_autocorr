@@ -272,6 +272,46 @@ PyObject * _modecount_spectra_regular(PyObject *self, PyObject *args)
     return Py_BuildValue("O", modecount);
 }
 
+//Computes the number of modes in spectra spaced regularly on a grid using brute-force O(n^2) computations.
+PyObject * _modecount_slow(PyObject *self, PyObject *args)
+{
+    int nspec;
+    int nout;
+    int npix;
+    //Arguments: nspec is number of spectra within the nspec, 
+    //npix is number of pixels along the line of sight.
+    //nout is number of bins in the resulting output correlation function
+    if(!PyArg_ParseTuple(args, "iii",&nspec, &npix, &nout) )
+        return NULL;
+    int count[nout];
+    memset(count,0,nout*sizeof(int));
+    npy_intp npnout = nout;
+    //Amount to scale each dimension by so that box is cube of side 1.
+    const double specscale= 1./nspec/nspec;
+    const double pixscale = 1./npix/npix;
+    for (int x2=0; x2<nspec;x2++)
+    for (int y2=0; y2<nspec;y2++)
+    for (int x1=0; x1<nspec;x1++)
+    for (int y1=0; y1<nspec;y1++)
+    for (int z1=0; z1<npix;z1++)
+    for (int z2=0; z2<npix;z2++)
+    {
+       //Total distance between each point. 
+       //Each dimension is normalised to 1.
+       double rr2 = ((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))*specscale+(z1-z2)*(z1-z2)*pixscale;
+       //Note that for 3D we need sqrt(3), for 2D sqrt(2)
+       int cbin = floor(sqrt(rr2) * nout / (1.*sqrt(3.)));
+       count[cbin]++;
+    }
+    PyArrayObject *pycount = (PyArrayObject *) PyArray_SimpleNew(1,&npnout,NPY_INT);
+    for(int nn=0; nn< nout; nn++){
+        *(int *)PyArray_GETPTR1(pycount,nn)=count[nn];
+    }
+    return Py_BuildValue("O", pycount);
+}
+
+
+
 PyObject * _modecount(PyObject *self, PyObject *args)
 {
     int box;
@@ -367,6 +407,11 @@ static PyMethodDef __autocorr[] = {
    "Calculate the number of modes in each bin with monte carlo"
    "    Arguments: box, nbins, nsamples"
    "    "},
+  {"modecount_slow", _modecount_slow, METH_VARARGS,
+   "Calculate the number of modes in 3D, binned, assuming a regular grid, a really slow way."
+   "    Arguments: nspec: number of spectra in x and y, npix: number of pixels in z, nout: nunber of output bins"
+   "    "},
+
   {NULL, NULL, 0, NULL},
 };
 
