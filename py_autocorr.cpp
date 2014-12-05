@@ -230,8 +230,7 @@ PyObject * _modecount_slow(PyObject *self, PyObject *args)
     //nout is number of bins in the resulting output correlation function
     if(!PyArg_ParseTuple(args, "iii",&nspec, &npix, &nout) )
         return NULL;
-    int count[nout];
-    memset(count,0,nout*sizeof(int));
+    int64_t count[nout]={0};
     npy_intp npnout = nout;
     //Amount to scale each dimension by so that box is cube of side 1.
     const double specscale= 1./nspec/nspec;
@@ -250,9 +249,9 @@ PyObject * _modecount_slow(PyObject *self, PyObject *args)
        int cbin = floor(sqrt(rr2) * nout / (1.*sqrt(3.)));
        count[cbin]++;
     }
-    PyArrayObject *pycount = (PyArrayObject *) PyArray_SimpleNew(1,&npnout,NPY_INT);
+    PyArrayObject *pycount = (PyArrayObject *) PyArray_SimpleNew(1,&npnout,NPY_INT64);
     for(int nn=0; nn< nout; nn++){
-        *(int *)PyArray_GETPTR1(pycount,nn)=count[nn];
+        *(int64_t *)PyArray_GETPTR1(pycount,nn)=count[nn];
     }
     return Py_BuildValue("O", pycount);
 }
@@ -268,8 +267,7 @@ PyObject * _modecount(PyObject *self, PyObject *args)
     //nout is number of bins in the resulting output correlation function
     if(!PyArg_ParseTuple(args, "iii",&nspec, &npix, &nout) )
         return NULL;
-    int count[nout];
-    memset(count,0,nout*sizeof(int));
+    int64_t count[nout]={0};
     npy_intp npnout = nout;
     //Amount to scale each dimension by so that box is cube of side 1.
     const double specscale= 1./nspec/nspec;
@@ -299,9 +297,9 @@ PyObject * _modecount(PyObject *self, PyObject *args)
             }
         }
     }
-    PyArrayObject *pycount = (PyArrayObject *) PyArray_SimpleNew(1,&npnout,NPY_INT);
+    PyArrayObject *pycount = (PyArrayObject *) PyArray_SimpleNew(1,&npnout,NPY_INT64);
     for(int nn=0; nn< nout; nn++){
-        *(int *)PyArray_GETPTR1(pycount,nn)=count[nn];
+        *(int64_t *)PyArray_GETPTR1(pycount,nn)=count[nn];
     }
     return Py_BuildValue("O", pycount);
 }

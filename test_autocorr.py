@@ -73,5 +73,4 @@ def testOverflow():
     """
     Check that large values do not overflow the counters!
     """
-    fast = _autocorr_priv.modecount(500,300,35)
-    assert np.all(fast > 0)
+    assert np.all( _autocorr_priv.modecount(500,300,35) > 0)
