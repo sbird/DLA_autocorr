@@ -229,7 +229,13 @@ PyObject * _modecount_slow(PyObject *self, PyObject *args)
     //npix is number of pixels along the line of sight.
     //nout is number of bins in the resulting output correlation function
     if(!PyArg_ParseTuple(args, "iii",&nspec, &npix, &nout) )
+    {
+        PyErr_SetString(PyExc_AttributeError, "Incorrect arguments: \n"
+              "nspec: number of spectra in x and y, \n"
+              "npix: number of pixels in z, \n"
+              "nout: nunber of output bins\n");
         return NULL;
+    }
     int64_t count[nout]={0};
     npy_intp npnout = nout;
     //Amount to scale each dimension by so that box is cube of side 1.
@@ -266,7 +272,24 @@ PyObject * _modecount(PyObject *self, PyObject *args)
     //npix is number of pixels along the line of sight.
     //nout is number of bins in the resulting output correlation function
     if(!PyArg_ParseTuple(args, "iii",&nspec, &npix, &nout) )
+    {
+        PyErr_SetString(PyExc_AttributeError, "Incorrect arguments: \n"
+        "nspec: number of spectra in x and y, \n"
+        "npix: number of pixels in z, \n"
+        "nout: nunber of output bins\n");
         return NULL;
+    }
+    //Thread-private variables are stack allocated.
+    //In practice each stack gets 8MB ~ 1e6 64 int64s, which we are unlikely to need,
+    //but check just in case.
+    if (nout > 1000000 || nout <= 0){
+        PyErr_SetString(PyExc_ValueError, "Number of output bins is <= 0 or too large (would overflow the stack)\n");
+        return NULL;
+    }
+    if (npix < 0 || nspec < 0){
+        PyErr_SetString(PyExc_ValueError, "Number of x, y, or z pixels is < 0\n");
+        return NULL;
+    }
     npy_intp npnout = nout;
     //Allocate memory for output
     PyArrayObject *pycount = (PyArrayObject *) PyArray_SimpleNew(1,&npnout,NPY_INT64);
