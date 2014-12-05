@@ -258,7 +258,7 @@ PyObject * _modecount_slow(PyObject *self, PyObject *args)
 }
 
 
-PyObject * _modecount_3d(PyObject *self, PyObject *args)
+PyObject * _modecount(PyObject *self, PyObject *args)
 {
     int nspec;
     int nout;
@@ -306,7 +306,7 @@ PyObject * _modecount_3d(PyObject *self, PyObject *args)
     return Py_BuildValue("O", pycount);
 }
 
-PyObject * _modecount(PyObject *self, PyObject *args)
+PyObject * _modecount_2d(PyObject *self, PyObject *args)
 {
     int box;
     int nbins;
@@ -340,7 +340,7 @@ PyObject * _modecount(PyObject *self, PyObject *args)
 
 //Compute the number of modes present in a bin using monte carlo techniques
 //Note as this is a histogram we have not computed error; just call it twice with differing samples and see the difference.
-PyObject * _modecount_monte_carlo(PyObject *self, PyObject *args)
+PyObject * _modecount_monte_carlo_2d(PyObject *self, PyObject *args)
 {
     int box;
     int nbins;
@@ -393,11 +393,11 @@ static PyMethodDef __autocorr[] = {
    "Calculate the autocorrelation function"
    "    Arguments: plist, nbins, size, norm"
    "    "},
-  {"modecount", _modecount, METH_VARARGS,
+  {"modecount_2d", _modecount_2d, METH_VARARGS,
    "Calculate the number of modes in each bin"
    "    Arguments: box, nbins"
    "    "},
-  {"modecount_mc", _modecount_monte_carlo, METH_VARARGS,
+  {"modecount_mc_2d", _modecount_monte_carlo_2d, METH_VARARGS,
    "Calculate the number of modes in each bin with monte carlo"
    "    Arguments: box, nbins, nsamples"
    "    "},
@@ -405,7 +405,7 @@ static PyMethodDef __autocorr[] = {
    "Calculate the number of modes in 3D, binned, assuming a regular grid, a really slow way."
    "    Arguments: nspec: number of spectra in x and y, npix: number of pixels in z, nout: nunber of output bins"
    "    "},
-  {"modecount_3d", _modecount_3d, METH_VARARGS,
+  {"modecount", _modecount, METH_VARARGS,
        "Calculate the number of modes in 3D, binned, assuming a regular grid, a faster way."
        "    Arguments: nspec: number of spectra in x and y, npix: number of pixels in z, nout: nunber of output bins"
        "    "},
