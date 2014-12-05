@@ -26,7 +26,8 @@ ifeq (icc,$(findstring icc,${CC}))
   CFLAGS +=-O2 -g -c -w1 -openmp -fpic -DNO_KAHAN
   LINK +=${CXX} -openmp
 else
-  CFLAGS +=-Og -g -c -Wall -fopenmp -fPIC -DNO_KAHAN -ffast-math
+  #-ffast-math speeds up by a factor of four!
+  CFLAGS +=-O2 -march=native -c -Wall -fopenmp -fPIC -DNO_KAHAN -ffast-math
   LINK +=${CXX} -openmp $(PRO)
   LFLAGS += -lm -lgomp
 endif
