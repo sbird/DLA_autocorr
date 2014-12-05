@@ -258,6 +258,53 @@ PyObject * _modecount_slow(PyObject *self, PyObject *args)
 }
 
 
+PyObject * _modecount_3d(PyObject *self, PyObject *args)
+{
+    int nspec;
+    int nout;
+    int npix;
+    //Arguments: nspec is number of spectra within the nspec, 
+    //npix is number of pixels along the line of sight.
+    //nout is number of bins in the resulting output correlation function
+    if(!PyArg_ParseTuple(args, "iii",&nspec, &npix, &nout) )
+        return NULL;
+    int count[nout];
+    memset(count,0,nout*sizeof(int));
+    npy_intp npnout = nout;
+    //Amount to scale each dimension by so that box is cube of side 1.
+    const double specscale= 1./nspec/nspec;
+    const double pixscale = 1./npix/npix;
+    // Special treatment for x=0 mode which would otherwise be double-counted
+    // x=y=z=0
+    count[0] = nspec*nspec*npix;
+    //x=y=0
+    for (int z=1; z<npix;z++){
+        int cbin = floor(z * nout / (1.*npix*sqrt(3.)));
+        count[cbin]+=2*(npix-z)*nspec*nspec;
+    }
+    for (int x=1; x<nspec;x++){
+        //This might look like we are double-counting for the y=0 case.
+        //However, this is not so; because x and y are symmetric, 
+        //the modes for (x=0, y!=0) are the same 
+        //as those for (y=0, x!=0), so we just do both at ones.
+        //x!=0 y!=0 z!=0
+        for (int y=0; y<nspec;y++){
+            double rr = sqrt(x*x+y*y);
+            int cbin = floor(rr * nout / (1.*nspec*sqrt(3.)));
+            count[cbin]+=4*(nspec-y)*(nspec-x)*npix;
+            for (int z=1; z<npix;z++){
+                double rr2 = (x*x+y*y)*specscale+z*z*pixscale;
+                int cbin = floor(sqrt(rr2) * nout / (1.*sqrt(3.)));
+                count[cbin]+=8*(nspec-y)*(nspec-x)*(npix-z);
+            }
+        }
+    }
+    PyArrayObject *pycount = (PyArrayObject *) PyArray_SimpleNew(1,&npnout,NPY_INT);
+    for(int nn=0; nn< nout; nn++){
+        *(int *)PyArray_GETPTR1(pycount,nn)=count[nn];
+    }
+    return Py_BuildValue("O", pycount);
+}
 
 PyObject * _modecount(PyObject *self, PyObject *args)
 {
@@ -358,7 +405,10 @@ static PyMethodDef __autocorr[] = {
    "Calculate the number of modes in 3D, binned, assuming a regular grid, a really slow way."
    "    Arguments: nspec: number of spectra in x and y, npix: number of pixels in z, nout: nunber of output bins"
    "    "},
-
+  {"modecount_3d", _modecount_3d, METH_VARARGS,
+       "Calculate the number of modes in 3D, binned, assuming a regular grid, a faster way."
+       "    Arguments: nspec: number of spectra in x and y, npix: number of pixels in z, nout: nunber of output bins"
+       "    "},
   {NULL, NULL, 0, NULL},
 };
 
