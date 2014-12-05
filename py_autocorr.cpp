@@ -268,38 +268,46 @@ PyObject * _modecount(PyObject *self, PyObject *args)
     if(!PyArg_ParseTuple(args, "iii",&nspec, &npix, &nout) )
         return NULL;
     npy_intp npnout = nout;
+    //Allocate memory for output
     PyArrayObject *pycount = (PyArrayObject *) PyArray_SimpleNew(1,&npnout,NPY_INT64);
-
-    int64_t count[nout]={0};
-    // Special treatment for x=0 mode which would otherwise be double-counted
-    // x=y=z=0
-
-    count[0] = nspec*nspec*npix;
-    //x=y=0
-    for (int z=1; z<npix;z++){
-        int cbin = floor(z * nout / (1.*npix*sqrt(3.)));
-        count[cbin]+=2*(npix-z)*nspec*nspec;
-    }
-    for (int x=1; x<nspec;x++){
-        //This might look like we are double-counting for the y=0 case.
-        //However, this is not so; because x and y are symmetric,
-        //the modes for (x=0, y!=0) are the same
-        //as those for (y=0, x!=0), so we just do both at ones.
-        //x!=0 y!=0 z!=0
-        for (int y=0; y<nspec;y++){
-            double rr = sqrt(x*x+y*y);
-            int cbin = floor(rr * nout / (1.*nspec*sqrt(3.)));
-            count[cbin]+=4*(nspec-y)*(nspec-x)*npix;
-            //Amount to scale each dimension by so that box is cube of side 1.
-            for (int z=1; z<npix;z++){
-                double rr2 = (x*x+y*y)+pow(z*nspec/1./npix,2);
-                int cbin = floor(sqrt(rr2) * nout / (1.*nspec*sqrt(3.)));
-                count[cbin]+=8*(nspec-y)*(nspec-x)*(npix-z);
+    PyArray_FILLWBYTE(pycount, 0);
+    // Special treatment for x=y=z=0 mode
+    *(int64_t *)PyArray_GETPTR1(pycount,0)= nspec*nspec*npix;
+    #pragma omp parallel
+    {
+        int64_t count[nout]={0};
+        //x=y=z=0 already done
+        //x=y=0
+        #pragma omp for nowait
+        for (int z=1; z<npix;z++){
+            int cbin = floor(z * nout / (1.*npix*sqrt(3.)));
+            count[cbin]+=2*(npix-z)*nspec*nspec;
+        }
+        #pragma omp for nowait
+        for (int x=1; x<nspec;x++){
+            //This might look like we are double-counting for the y=0 case.
+            //However, this is not so; because x and y are symmetric,
+            //the modes for (x=0, y!=0) are the same
+            //as those for (y=0, x!=0), so we just do both at ones.
+            //x!=0 y!=0 z!=0
+            for (int y=0; y<nspec;y++){
+                double rr = sqrt(x*x+y*y);
+                int cbin = floor(rr * nout / (1.*nspec*sqrt(3.)));
+                count[cbin]+=4*(nspec-y)*(nspec-x)*npix;
+                //Amount to scale each dimension by so that box is cube of side 1.
+                for (int z=1; z<npix;z++){
+                    double rr2 = (x*x+y*y)+pow(z*nspec/1./npix,2);
+                    int cbin = floor(sqrt(rr2) * nout / (1.*nspec*sqrt(3.)));
+                    count[cbin]+=8*(nspec-y)*(nspec-x)*(npix-z);
+                }
             }
         }
-    }
-    for(int nn=0; nn< nout; nn++){
-        *(int64_t *)PyArray_GETPTR1(pycount,nn)=count[nn];
+        #pragma omp critical
+        {
+            for(int nn=0; nn< nout; nn++){
+                *(int64_t *)PyArray_GETPTR1(pycount,nn)+=count[nn];
+            }
+        }
     }
     return Py_BuildValue("O", pycount);
 }
