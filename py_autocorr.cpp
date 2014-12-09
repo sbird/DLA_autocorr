@@ -95,16 +95,7 @@ PyObject * _autocorr_spectra(PyObject *self, PyObject *args)
     }
     PyArrayObject *autocorr = (PyArrayObject *) PyArray_SimpleNew(1,&npnbins,NPY_DOUBLE);
     PyArray_FILLWBYTE(autocorr, 0);
-    PyArrayObject *modecount = (PyArrayObject *) PyArray_SimpleNew(1,&npnbins,NPY_INT);
-    PyArray_FILLWBYTE(modecount, 0);
-
-    for(int tid=0; tid < nproc; tid++){
-        for(int nn=0; nn< nbins; nn++){
-            *(double *)PyArray_GETPTR1(autocorr,nn)+=autocorr_C[tid][nn];
-	    *(int *)PyArray_GETPTR1(modecount,nn)+=modecount_C[tid][nn];
-        }
-    }
-    return Py_BuildValue("OO", modecount, autocorr);
+    return Py_BuildValue("OO", autocorr);
 }
 
 /*Find the autocorrelation function from a sparse list of discrete tracer points.
@@ -131,32 +122,32 @@ PyObject * _autocorr_list(PyObject *self, PyObject *args)
     assert(dims == 2);
     npy_intp points = PyArray_DIM(plist,1);
     npy_intp npnbins = nbins;
-    //Bin autocorrelation, must cover sqrt(dims)*size
-    //so each bin has size sqrt(dims)*size /nbins
-    const int nproc = omp_get_num_procs();
-    int autocorr_C[nproc][nbins];
-    memset(autocorr_C,0,nproc*nbins*sizeof(int));
+    //Array for output
+    PyArrayObject *autocorr = (PyArrayObject *) PyArray_SimpleNew(1,&npnbins,NPY_DOUBLE);
+    PyArray_FILLWBYTE(autocorr, 0);
     //Avg. density of the field: rho-bar
     #pragma omp parallel
     {
-        const int tid = omp_get_thread_num();
-        #pragma omp for
+        //Bin autocorrelation, must cover sqrt(dims)*size
+        //so each bin has size sqrt(dims)*size /nbins
+        int autocorr_C[nbins] = {0};
+        #pragma omp for nowait
         for(int b=0; b<points; b++){
             for(int a=0; a<points; a++){
                 //TODO: Check actually int
                 double rr = distance2((int *)PyArray_GETPTR2(plist,0,a), (int *) PyArray_GETPTR2(plist,0,b));
                 //Which bin to add this one to?
                 int cbin = floor(rr * nbins / (size*sqrt(dims)));
-                autocorr_C[tid][cbin]+=1;
+                autocorr_C[cbin]+=1;
             }
         }
-    }
-    PyArrayObject *autocorr = (PyArrayObject *) PyArray_SimpleNew(1,&npnbins,NPY_DOUBLE);
-    PyArray_FILLWBYTE(autocorr, 0);
-    for(int tid=0; tid < nproc; tid++){
-        for(int nn=0; nn< nbins; nn++){
-            *(double *)PyArray_GETPTR1(autocorr,nn)+=autocorr_C[tid][nn];
+        #pragma omp critical
+        {
+           for(int nn=0; nn< nbins; nn++){
+               *(double *)PyArray_GETPTR1(autocorr,nn)+=autocorr_C[nn];
+           }
         }
+
     }
     return Py_BuildValue("O", autocorr);
 }
