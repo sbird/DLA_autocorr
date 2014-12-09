@@ -6,3 +6,5 @@ _*_priv.so
 tags
 moments
 total
+.directory
+.gdb_history
