@@ -82,6 +82,84 @@ PyObject * _crosscorr_spectra(PyObject *self, PyObject *args)
     return Py_BuildValue("O", autocorr);
 }
 
+/* Find the cross-correlation function between a full spectra field and a list of sparse tracer points.
+ *  The field is assumed to be 1 at these points and zero elsewhere
+ *  slist - full field.
+ *  plist1. plist2 - list of tracer points to correlate. A tuple length n (n=2) of 1xP arrays.
+ *  the first and second components of output of an np.where on something of shape slist
+ *  nspec - number of spectra in each direction
+ *  npix - number of pixels in each direction
+ *  nout - number of bins in output crosscorrelation function
+ */
+PyObject * _crosscorr_list_spectra(PyObject *self, PyObject *args)
+{
+    PyArrayObject *plist1, *plist2, *slist;
+    int nout, nspec;
+    if(!PyArg_ParseTuple(args, "O!O!O!ii", &PyArray_Type, &slist, &PyArray_Type, &plist1, &PyArray_Type, &plist2, &nspec,&nout) )
+        return NULL;
+    if(check_type(slist, NPY_DOUBLE) || check_type(plist2, NPY_INT64) || check_type(plist2, NPY_INT64))
+    {
+        PyErr_SetString(PyExc_AttributeError, "slist must be float64, plist must be 64-bit integer.\n");
+        return NULL;
+    }
+    if( PyArray_NDIM(slist) != 2 || PyArray_DIM(slist,0) != nspec*nspec)
+    {
+        PyErr_SetString(PyExc_ValueError, "slist must have dimensons (nspec^2, npix).\n");
+        return NULL;
+    }
+    if( PyArray_NDIM(plist2) != 1 || PyArray_NDIM(plist2) != 1)
+    {
+        PyErr_SetString(PyExc_AttributeError, "plist and plist2 must each be single dimensional arrays.\n");
+        return NULL;
+    }
+    npy_intp points = PyArray_DIM(plist1,0);
+    if( points !=  PyArray_DIM(plist2,0))
+    {
+        PyErr_SetString(PyExc_AttributeError, "plist1 and plist2 must have same length.\n");
+        return NULL;
+    }
+    const int npix = PyArray_DIM(slist,1);
+    npy_intp npnbins = nout;
+    //Array for output
+    PyArrayObject *autocorr = (PyArrayObject *) PyArray_SimpleNew(1,&npnbins,NPY_DOUBLE);
+    PyArray_FILLWBYTE(autocorr, 0);
+    //Avg. density of the field: rho-bar
+    #pragma omp parallel
+    {
+        //Bin autocorrelation, must cover sqrt(dims)*size
+        //so each bin has size sqrt(dims)*size /nbins
+        int64_t autocorr_C[nout] = {0};
+        #pragma omp for nowait
+        for(int a=0; a<points; a++){
+            // plist contains position indices. Position of each point is (n, m) = (plist[0, a], plist[1,a])
+            // In physical coordinates that is (x, y, z) = (n / nspec, n % nspec, m)
+            // So distance is (x**2 + y**2)/nspec**2 + z**2/npix**2
+            int na = *(int *)PyArray_GETPTR1(plist1,a);
+            int ma = *(int *)PyArray_GETPTR1(plist2,a);
+            for (int x1=0; x1<nspec;x1++)
+                for (int y1=0; y1<nspec;y1++)
+                    for (int z1=0; z1<npix;z1++){
+                        //x difference
+                        double rr2 = (na / nspec - x1)*(na / nspec - x1)/(1.*nspec*nspec);
+                        //y difference
+                        rr2 += (na % nspec - y1)*(na % nspec - y1)/(1.*nspec*nspec);
+                        //z difference
+                        rr2 += (ma-z1)*(ma-z1)/(1.*npix*npix);
+                        //Which bin to add this one to?
+                        int cbin = floor(sqrt(rr2) * nout / (1.*sqrt(3.)));
+                        autocorr_C[cbin]+=*(double *)PyArray_GETPTR2(slist, x1*nspec+y1, z1); //*1 for the tracer
+                   }
+        }
+        #pragma omp critical
+        {
+            for(int nn=0; nn< nout; nn++){
+                *(double *)PyArray_GETPTR1(autocorr,nn)+=autocorr_C[nn];
+            }
+        }
+    }
+    return Py_BuildValue("O", autocorr);
+}
+
 /* Find the autocorrelation function from a sparse list of discrete tracer points.
    The field is assumed to be 1 at these points and zero elsewhere
    plist1. plist2 - list of points to autocorrelate. A tuple length n (n=2) of 1xP arrays.
@@ -98,7 +176,7 @@ PyObject * _autocorr_list(PyObject *self, PyObject *args)
         return NULL;
     if(check_type(plist2, NPY_INT64) || check_type(plist2, NPY_INT64))
     {
-          PyErr_SetString(PyExc_AttributeError, "Input list is not 32-bit integer.\n");
+          PyErr_SetString(PyExc_AttributeError, "Input list is not 64-bit integer.\n");
           return NULL;
     }
     /*In practice assume this is 2*/
@@ -125,14 +203,14 @@ PyObject * _autocorr_list(PyObject *self, PyObject *args)
         int64_t autocorr_C[nout] = {0};
         #pragma omp for nowait
         for(int b=0; b<points; b++){
+            const int nb = *(int *)PyArray_GETPTR1(plist1,b);
+            const int mb = *(int *)PyArray_GETPTR1(plist2,b);
             for(int a=0; a<points; a++){
                 // plist contains position indices. Position of each point is (n, m) = (plist[0, a], plist[1,a])
                 // In physical coordinates that is (x, y, z) = (n / nspec, n % nspec, m)
                 // So distance is (x**2 + y**2)/nspec**2 + z**2/npix**2
-                int na = *(int *)PyArray_GETPTR1(plist1,a);
-                int ma = *(int *)PyArray_GETPTR1(plist2,a);
-                int nb = *(int *)PyArray_GETPTR1(plist1,b);
-                int mb = *(int *)PyArray_GETPTR1(plist2,b);
+                const int na = *(int *)PyArray_GETPTR1(plist1,a);
+                const int ma = *(int *)PyArray_GETPTR1(plist2,a);
                 //x difference
                 double rr2 = (na / nspec - nb/nspec)*(na / nspec - nb/nspec)/(1.*nspec*nspec);
                 //y difference
@@ -351,6 +429,17 @@ static PyMethodDef __autocorr[] = {
    "    "},
   {"autocorr_list", _autocorr_list, METH_VARARGS,
    "Calculate the autocorrelation function"
+   "    Arguments: plist1, plist2, spec, pix, nbins"
+   "    "},
+  {"crosscorr_list_spectra", _crosscorr_list_spectra, METH_VARARGS,
+   " Find the cross-correlation function between a full spectra field and a list of sparse tracer points."
+   " The field is assumed to be 1 at these points and zero elsewhere"
+   " slist - full field."
+   " plist1. plist2 - list of tracer points to correlate. A tuple length n (n=2) of 1xP arrays."
+   " the first and second components of output of an np.where on something of shape slist"
+   " nspec - number of spectra in each direction"
+   " npix - number of pixels in each direction"
+   " nout - number of bins in output crosscorrelation function"
    "    Arguments: plist1, plist2, spec, pix, nbins"
    "    "},
   {"modecount_2d", _modecount_2d, METH_VARARGS,

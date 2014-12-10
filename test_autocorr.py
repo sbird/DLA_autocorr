@@ -128,3 +128,16 @@ def testAutoCorrList():
         ind = np.where(slist == 1)
         auto2 = _autocorr_priv.autocorr_list(ind[0], ind[1], spec, pix,30)
         assert(np.all(auto == auto2))
+
+
+def testCrossCorrList():
+    """Check that the cross-correlation between a field and tracers gives the same answer as the list-based computation"""
+    np.random.seed(23)
+    values = (15, 14, 5, 18, 13, 23, 4, 34, 17)
+    for (spec, pix) in it.combinations(values, 2):
+        slist = np.random.randint(0,2,(spec*spec,pix))
+        slist = slist.astype(np.float64)
+        ind = np.where(slist == 1)
+        auto = _autocorr_priv.crosscorr_list_spectra(slist, ind[0], ind[1], spec, 30)
+        auto2 = _autocorr_priv.autocorr_list(ind[0], ind[1], spec, pix,30)
+        assert(np.all(auto == auto2))
