@@ -171,9 +171,6 @@ PyObject * _modecount_slow(PyObject *self, PyObject *args)
     }
     int64_t count[nout]={0};
     npy_intp npnout = nout;
-    //Amount to scale each dimension by so that box is cube of side 1.
-    const double specscale= 1./nspec/nspec;
-    const double pixscale = 1./npix/npix;
     for (int x2=0; x2<nspec;x2++)
     for (int y2=0; y2<nspec;y2++)
     for (int x1=0; x1<nspec;x1++)
@@ -183,7 +180,7 @@ PyObject * _modecount_slow(PyObject *self, PyObject *args)
     {
        //Total distance between each point. 
        //Each dimension is normalised to 1.
-       double rr2 = ((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))*specscale+(z1-z2)*(z1-z2)*pixscale;
+       double rr2 = ((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))/(1.*nspec*nspec)+(z1-z2)*(z1-z2)/(1.*npix*npix);
        //Note that for 3D we need sqrt(3), for 2D sqrt(2)
        int cbin = floor(sqrt(rr2) * nout / (1.*sqrt(3.)));
        count[cbin]++;
@@ -247,13 +244,13 @@ PyObject * _modecount(PyObject *self, PyObject *args)
             //as those for (y=0, x!=0), so we just do both at ones.
             //x!=0 y!=0 z!=0
             for (int y=0; y<nspec;y++){
-                double rr = sqrt(x*x+y*y);
-                int cbin = floor(rr * nout / (1.*nspec*sqrt(3.)));
+                double rr2 = x*x+y*y;
+                int cbin = floor(sqrt(rr2) * nout / (1.*nspec*sqrt(3.)));
                 count[cbin]+=4*(nspec-y)*(nspec-x)*npix;
                 //Amount to scale each dimension by so that box is cube of side 1.
                 for (int z=1; z<npix;z++){
-                    double rr2 = (x*x+y*y)+pow(z*nspec/1./npix,2);
-                    int cbin = floor(sqrt(rr2) * nout / (1.*nspec*sqrt(3.)));
+                    double rr2_inner = rr2+pow(z*nspec/1./npix,2);
+                    int cbin = floor(sqrt(rr2_inner) * nout / (1.*nspec*sqrt(3.)));
                     count[cbin]+=8*(nspec-y)*(nspec-x)*(npix-z);
                 }
             }
