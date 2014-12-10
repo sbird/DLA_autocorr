@@ -3,28 +3,7 @@
 
 #include <Python.h>
 #include "numpy/arrayobject.h"
-#include <omp.h>
-#include <cassert>
 #include <gsl/gsl_rng.h>
-
-//Compute the absolute distance between two points
-double distance(const int * a, const int * b, const npy_intp dims)
-{
-    double total=0;
-    for(int i=0; i< dims; i++){
-        total+=pow(*(a+i)-*(b+i),2);
-    }
-    return sqrt(total);
-}
-
-
-//Compute the absolute distance between two points
-double distance2(const int * a, const int * b)
-{
-    const int dif1 = (*(a)-*(b));
-    const int dif2 = (*(a+1)-*(b+1));
-    return sqrt(dif1*dif1+dif2*dif2);
-}
 
 /*Check whether the passed array has type typename. Returns 1 if it doesn't, 0 if it does.*/
 int check_type(PyArrayObject * arr, int npy_typename)
@@ -334,7 +313,6 @@ PyObject * _modecount_monte_carlo_2d(PyObject *self, PyObject *args)
     npy_intp npnbins = nbins;
     gsl_rng *r = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(r, 23);
-    assert(gsl_rng_min(r) == 0);
     for (int i=0; i<nsamples; i++){
         int a = gsl_rng_uniform_int(r, box);
         int b = gsl_rng_uniform_int(r, box);
