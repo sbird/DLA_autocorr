@@ -74,3 +74,47 @@ def testOverflow():
     Check that large values do not overflow the counters!
     """
     assert np.all( _autocorr_priv.modecount(500,550,5) > 0)
+
+
+def testAutocorrAnalytic():
+    """Correlation functions for a single spectrum with a few non-zero points."""
+    slist = np.zeros((1,50),dtype=np.float64)
+    slist[0,25] = 1
+    auto = _autocorr_priv.crosscorr_spectra(slist, slist, 1, 30);
+    assert(auto[0] == 1)
+    assert(np.all(auto[1:] == 0))
+    #Check that it doesn't matter which position this point is.
+    slist[0,25] = 0
+    slist[0,15] = 1
+    auto = _autocorr_priv.crosscorr_spectra(slist, slist, 1, 30);
+    assert(auto[0] == 1)
+    assert(np.all(auto[1:] == 0))
+    #Check two points
+    slist[0,30] = 1
+    auto = _autocorr_priv.crosscorr_spectra(slist, slist, 1, 30);
+    assert(auto[0] == 2)
+    assert(auto[5] == 2)
+    assert(np.all(auto[1:5] == 0))
+    assert(np.all(auto[6:] == 0))
+    #Check for different inputs
+    slist2 = np.zeros((1,50),dtype=np.float64)
+    slist2[0,15] = 1
+    auto = _autocorr_priv.crosscorr_spectra(slist, slist2, 1, 30);
+    assert(auto[0] == 1)
+    assert(auto[5] == 1)
+    assert(np.all(auto[1:5] == 0))
+    assert(np.all(auto[6:] == 0))
+
+def testAutoCorrAgainstModecount():
+    """Check that if autocorr is handed a constant array, it gives the same answer as modecount, ie,
+    that it has the right limiting behaviour"""
+    slist = np.ones((15*15, 8), dtype=np.float64)
+    auto = _autocorr_priv.crosscorr_spectra(slist, slist, 15, 30);
+    mode = _autocorr_priv.modecount(15, 8, 30);
+    assert np.all(auto == mode)
+    slist*=-2
+    #Should now be four times mode
+    auto = _autocorr_priv.crosscorr_spectra(slist, slist, 15, 30);
+    assert np.all(auto == 4*mode)
+
+

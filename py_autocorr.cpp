@@ -32,79 +32,83 @@ int check_type(PyArrayObject * arr, int npy_typename)
   return !PyArray_EquivTypes(PyArray_DESCR(arr), PyArray_DescrFromType(npy_typename));
 }
 
-//Compute square of distance between two sightlines, assuming same axis
-double spec_distance2(const double * a, const double * b)
-{
-    const double dif[2] = {(*(a)-*(b)), (*(a+1)-*(b+1))};
-    return dif[0]*dif[0]+dif[1]*dif[1];
-}
-
-/*Find the autocorrelation function from a list of spectra
-   Spectra are assumed to be along the same axis.
-   slist - list of quantity along spectra to autocorrelate. npix * nspectra
-   spos -  positions of the spectra: 2x nspectra: (x, y).
-   nbins - number of bins in output autocorrelation function
-   pixsz - Size of a pixel in units of the cofm.
+/*Find the cross-correlation function of two quantities computed along a list of spectra
+   Spectra are assumed to be along the same axis and a regular grid.
+   slist - list of quantity along spectra to correlate. (nspectra, npix)
+   slist2 - Second quantity to correlate with the first
+   nspec - number of spectra in each direction
+   nout - Number of bins in output function
 */
-PyObject * _autocorr_spectra(PyObject *self, PyObject *args)
+PyObject * _crosscorr_spectra(PyObject *self, PyObject *args)
 {
-    PyArrayObject *slist, *spos;
-    int nbins;
-    double pixsz;
-    if(!PyArg_ParseTuple(args, "O!O!di",&PyArray_Type, &slist, &PyArray_Type, &spos, &pixsz, &nbins) )
+    PyArrayObject *slist, *slist2;
+    int nout, nspec;
+    if(!PyArg_ParseTuple(args, "O!O!ii",&PyArray_Type, &slist, &PyArray_Type, &slist2, &nspec, &nout) )
     {
-        PyErr_SetString(PyExc_AttributeError, "Incorrect arguments: use slist, spos, pixsz, nbins\n");
+        PyErr_SetString(PyExc_AttributeError, "Incorrect arguments: use slist, slist2, nspec, nbins\n");
         return NULL;
     }
-    if(check_type(slist, NPY_DOUBLE) || check_type(spos, NPY_DOUBLE))
+    if(check_type(slist, NPY_DOUBLE) || check_type(slist2, NPY_DOUBLE) )
     {
-          PyErr_SetString(PyExc_AttributeError, "Input arrays are not float64.\n");
+          PyErr_SetString(PyExc_AttributeError, "slist and slist2 must be float64.\n");
           return NULL;
     }
-    npy_intp npix = PyArray_DIM(slist,0);
-    npy_intp nspectra = PyArray_DIM(slist,1);
-    npy_intp npnbins = nbins;
-    //Bin autocorrelation, must cover sqrt(dims)*size
-    //so each bin has size sqrt(dims)*size /nbins
-    const int nproc = omp_get_num_procs();
-    double autocorr_C[nproc][nbins];
-    int modecount_C[nproc][nbins];
-    memset(modecount_C,0,nproc*nbins*sizeof(int));
-    memset(autocorr_C,0,nproc*nbins*sizeof(int));
-    #pragma omp parallel
+    if( PyArray_NDIM(slist) != 2 || PyArray_DIM(slist,0) != nspec*nspec)
     {
-        const int tid = omp_get_thread_num();
-        const double binsz = nbins / (npix * pixsz*sqrt(3));
-        #pragma omp for
-        for(int b=0; b<nspectra; b++){
-            for(int a=0; a<nspectra; a++){
-                double sdist2 = spec_distance2((double *) PyArray_GETPTR2(spos,0, a), (double *) PyArray_GETPTR2(spos,0, b));
-                double * speca = (double *) PyArray_GETPTR2(slist,0, a);
-                double * specb = (double *) PyArray_GETPTR2(slist,0, b);
-                for(int bb=0; bb<npix; bb++){
-                    for(int aa=0; aa<npix; aa++){
-                        double rr = sqrt(sdist2+ (bb-aa)*(bb-aa)*pixsz);
-                        //Which bin to add this one to?
-                        int cbin = floor(rr * binsz);
-                        autocorr_C[tid][cbin]+=speca[aa]*specb[bb];
-                        modecount_C[tid][cbin]+=1;
-                    }
-                }
-            }
-       }
+        PyErr_SetString(PyExc_ValueError, "slist must have dimensons (nspec^2, npix).\n");
+        return NULL;
     }
+    if( PyArray_NDIM(slist2) != 2 || PyArray_DIM(slist2,0) != nspec*nspec)
+    {
+        PyErr_SetString(PyExc_ValueError, "slist2 must have dimensons (nspec^2, npix).\n");
+        return NULL;
+    }
+    const int npix = PyArray_DIM(slist,1);
+    if( PyArray_DIM(slist2,1) != npix )
+    {
+        PyErr_SetString(PyExc_ValueError, "slist2 must have same dimensions as slist1 (nspec^2, npix).\n");
+        return NULL;
+    }
+    //Allocate output memory
+    npy_intp npnbins = nout;
     PyArrayObject *autocorr = (PyArrayObject *) PyArray_SimpleNew(1,&npnbins,NPY_DOUBLE);
     PyArray_FILLWBYTE(autocorr, 0);
-    return Py_BuildValue("OO", autocorr);
+    //Bin autocorrelation, must cover sqrt(dims)*size
+    //so each bin has size sqrt(dims)*size /nbins
+    #pragma omp parallel
+    {
+        double autocorr_C[nout] = {0};
+        #pragma omp for nowait
+        for (int x2=0; x2<nspec;x2++)
+            for (int y2=0; y2<nspec;y2++)
+                for (int x1=0; x1<nspec;x1++)
+                    for (int y1=0; y1<nspec;y1++)
+                        for (int z1=0; z1<npix;z1++)
+                            for (int z2=0; z2<npix;z2++)
+                            {
+                                //Total distance between each point.
+                                //Each dimension is normalised to 1.
+                                double rr2 = ((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))/(1.*nspec*nspec)+(z1-z2)*(z1-z2)/(1.*npix*npix);
+                                //Note that for 3D we need sqrt(3), for 2D sqrt(2)
+                                int cbin = floor(sqrt(rr2) * nout / (1.*sqrt(3.)));
+                                autocorr_C[cbin]+=*(double *) PyArray_GETPTR2(slist, x1*nspec+y1, z1) * *(double *) PyArray_GETPTR2(slist2, x2*nspec+y2, z2);
+                            }
+       #pragma omp critical
+       {
+           for(int nn=0; nn< nout; nn++){
+               *(double *)PyArray_GETPTR1(autocorr,nn)+=autocorr_C[nn];
+           }
+       }
+    }
+    return Py_BuildValue("O", autocorr);
 }
 
-/*Find the autocorrelation function from a sparse list of discrete tracer points.
+/* Find the autocorrelation function from a sparse list of discrete tracer points.
    The field is assumed to be 1 at these points and zero elsewhere
    list - list of points to autocorrelate. A tuple length n (n=2) of 1xP arrays:
    the output of an np.where on an n-d field
    nbins - number of bins in output autocorrelation function
    size - size of the original field (assumed square), so field has dimensions (size,size..) n times
-   norm - If true, normalise by the number of possible cells in each bin
 */
 PyObject * _autocorr_list(PyObject *self, PyObject *args)
 {
@@ -340,13 +344,13 @@ PyObject * _modecount_monte_carlo_2d(PyObject *self, PyObject *args)
 
 
 static PyMethodDef __autocorr[] = {
-  {"autocorr_spectra", _autocorr_spectra, METH_VARARGS,
+  {"crosscorr_spectra", _crosscorr_spectra, METH_VARARGS,
    "Find the autocorrelation function from a list of spectra"
-   "Spectra are assumed to be along the same axis."
-   "slist - list of quantity along spectra to autocorrelate. npix * nspectra"
-   "spos -  positions of the spectra: 2x nspectra: (x, y). "
-   "pixsz - Size of a pixel in units of the cofm."
-   "nbins - number of bins in output autocorrelation function"
+   "Spectra are assumed to be along the same axis and on a regular grid."
+   "slist - First quantity along spectrum to correlate. (nspectra, npix)"
+   "slist2 - Second quantity to correlate. (nspectra, npix)"
+   "nspec - number of spectra in each direction"
+   "nout - Number of bins in output function"
    "    "},
   {"autocorr_list", _autocorr_list, METH_VARARGS,
    "Calculate the autocorrelation function"
