@@ -21,8 +21,7 @@ def autocorr_spectra(slist, spos, pixsz, nbins=100):
     nbins - number of bins in output autocorrelation function
     pixsz - Size of a pixel in units of the spectra position.
     """
-    (modes, auto) = _autocorr_priv.autocorr_spectra(slist, spos, pixsz, nbins)
-    auto /= modes
+    auto = _autocorr_priv.autocorr_spectra(slist, spos, pixsz, nbins)
     return auto
 
 def autocorr_python(field):
@@ -88,24 +87,6 @@ def autocorr_list(plist, nbins, size, weight=1,norm=True):
             #Which bin to add this one to?
             cbin = np.floor(rr * nbins / (size*np.sqrt(dims)))
             autocorr[cbin]+=weight
-
-    if norm:
-        autocorr /= size*size
-        for nn in xrange(0,nbins):
-            #Count number of square bins in a circle of radius sqrt(dims)*size
-            #This is 4 * (quarter circle)
-            # = 4 * sum(y < r) \sqrt(r^2-y^2)
-            #Maximal radius in this bin
-            rr = (1+nn)*np.sqrt(dims)*size/(1.*nbins)
-            #Vector of y values
-            yy = np.arange(0,np.floor(rr))
-            #Vector of integrands along x axis
-            count[nn] = 4*np.sum(np.ceil(np.sqrt(rr**2 - yy**2)))
-        #Take off the modes in previous bin to get an annulus
-        for nn in xrange(nbins-1,0,-1):
-            count[nn] -= count[nn-1]
-        for nn in xrange(0,nbins):
-            autocorr[nn]/=count[nn]
     return autocorr
 
 
