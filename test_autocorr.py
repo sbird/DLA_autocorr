@@ -129,7 +129,6 @@ def testAutoCorrList():
         auto2 = _autocorr_priv.autocorr_list(ind[0], ind[1], spec, pix,30)
         assert(np.all(auto == auto2))
 
-
 def testCrossCorrList():
     """Check that the cross-correlation between a field and tracers gives the same answer as the list-based computation"""
     np.random.seed(23)

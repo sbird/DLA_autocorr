@@ -88,7 +88,6 @@ PyObject * _crosscorr_spectra(PyObject *self, PyObject *args)
  *  plist1. plist2 - list of tracer points to correlate. A tuple length n (n=2) of 1xP arrays.
  *  the first and second components of output of an np.where on something of shape slist
  *  nspec - number of spectra in each direction
- *  npix - number of pixels in each direction
  *  nout - number of bins in output crosscorrelation function
  */
 PyObject * _crosscorr_list_spectra(PyObject *self, PyObject *args)
@@ -438,9 +437,8 @@ static PyMethodDef __autocorr[] = {
    " plist1. plist2 - list of tracer points to correlate. A tuple length n (n=2) of 1xP arrays."
    " the first and second components of output of an np.where on something of shape slist"
    " nspec - number of spectra in each direction"
-   " npix - number of pixels in each direction"
    " nout - number of bins in output crosscorrelation function"
-   "    Arguments: plist1, plist2, spec, pix, nbins"
+   "    Arguments: plist1, plist2, spec, nbins"
    "    "},
   {"modecount_2d", _modecount_2d, METH_VARARGS,
    "Calculate the number of modes in each bin"

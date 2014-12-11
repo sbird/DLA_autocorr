@@ -1,56 +1,26 @@
 # -*- coding: utf-8 -*-
-"""Module to compute the autocorrelation function of a field:
-this uses the naive O(n^2) method.
-The idea here was that because our field is sparse,
-n would be small. However, this fails because you
-need to normalise by the number of modes per bin,
-and computing that is still O(n^2).
-It should be possible to do this analytically,
-but I have not. The code remains in case I find a use for it later.
+"""Module to compute the autocorrelation function of a field,
+directly from spectra, rather than via the power spectrum.
+
+The algorithms here implemented are formally O(n^2)!
 """
 
 import numpy as np
 import _autocorr_priv
 
-def autocorr_spectra(slist, spos, pixsz, nbins=100):
+def autocorr_spectra(slist, nout=100):
     """
     Find the autocorrelation function from a list of spectra
     Spectra are assumed to be along the same axis.
     slist - list of quantity along spectra to autocorrelate. npix * nspectra
-    spos -  positions of the spectra: 2x nspectra: (x, y).
-    nbins - number of bins in output autocorrelation function
-    pixsz - Size of a pixel in units of the spectra position.
+    nout - number of bins in output autocorrelation function
     """
-    auto = _autocorr_priv.autocorr_spectra(slist, spos, pixsz, nbins)
+    nspec = int(np.sqrt(np.shape(slist)[0]))
+    assert nspec*nspec == np.shape(slist)[0]
+    auto = _autocorr_priv.crosscorr_spectra(slist, slist, nspec, nout)
     return auto
 
-def autocorr_python(field):
-    """Pure python implementation of the 1-d autocorrelation function.
-       This will be very slow, and is also better done with np.correlate.
-       Assume it has been normalised elsewhere
-       Arguments:
-          field - field to find the autocorrelation of
-    """
-    #For a 2d square field this will be (N, N), and N^D = M
-    dims = np.shape(field)
-    #To store output - spacing evenly in grid units
-    autocorr = np.zeros(dims[0])
-    count = np.zeros(dims[0])
-    #Do correlation of each cell with each other cell in turn: O(M^2)
-    for a in xrange(0,dims[0]):
-        for b in xrange(0,dims[0]):
-            #Calculate bin: distance between the two points
-            r = b - a
-            autocorr[r] += field[a]*field[b]
-            count[r] += 1
-    #Normalise wrt number of cells
-    for r in xrange(0, dims[0]):
-        autocorr[r]/=count[r]
-
-    return autocorr
-
-
-def autocorr_list_c(plist, nbins, size):
+def autocorr_list(slist, thresh, nout=100):
     """Find the autocorrelation function from a sparse list of discrete tracer points.
        The field is assumed to be 1 at these points and zero elsewhere
        list - list of points to autocorrelate. A tuple length n of 1xP arrays:
@@ -60,63 +30,27 @@ def autocorr_list_c(plist, nbins, size):
        weight - weight each point has: use 1/(avg. density)
        norm - If true, normalise by the number of possible cells in each bin
     """
-    #Make an array of shape (n,P)
-    plist = np.array(plist)
-    return _autocorr_priv.autocorr_list(plist, nbins, size)
+    (spec, npix) = np.shape(slist)
+    nspec = int(np.sqrt(spec))
+    assert nspec*nspec == spec
+    ind = np.where(slist > thresh)
+    return _autocorr_priv.autocorr_list(ind[0], ind[1], nspec, npix, nout)
 
-def autocorr_list(plist, nbins, size, weight=1,norm=True):
-    """Find the autocorrelation function from a sparse list of discrete tracer points.
-       The field is assumed to be 1 at these points and zero elsewhere
-       list - list of points to autocorrelate. A tuple length n of 1xP arrays:
-       the output of an np.where on an n-d field
-       nbins - number of bins in output autocorrelation function
-       size - size of the original field (assumed square), so field has dimensions (size,size..) n times
-       weight - weight each point has: use 1/(avg. density)
-       norm - If true, normalise by the number of possible cells in each bin
+def crosscorr_spectra(slist1, slist2, thresh, nout=100):
     """
-    #Make an array of shape (n,P)
-    plist = np.array(plist)
-    (dims, points) = np.shape(plist)
-    #Bin autocorrelation, must cover sqrt(dims)*size
-    #so each bin has size sqrt(dims)*size /nbins
-    autocorr = np.zeros(nbins)
-    count = np.zeros(nbins)
-    for b in xrange(points):
-        for a in xrange(points):
-            rr = distance(plist[:,a], plist[:,b])
-            #Which bin to add this one to?
-            cbin = np.floor(rr * nbins / (size*np.sqrt(dims)))
-            autocorr[cbin]+=weight
-    return autocorr
+    Cross-correlate two quantities evaluated along spectra.
+    One is assumed to be a sparse tracer (such as a DLA).
+    slist1 is treated as a field
+    slist2 is a tracer, everything > thresh is 1, < thresh is 0.
+    """
+    assert np.all(np.shape(slist1) == np.shape(slist2))
+    (spec, _) = np.shape(slist1)
+    nspec = int(np.sqrt(spec))
+    assert nspec*nspec == spec
+    ind = np.where(slist2 > thresh)
+    return _autocorr_priv.crosscorr_list_spectra(slist1, ind[0], ind[1], nspec, nout)
 
 
-def distance(a, b):
-    """Compute the absolute distance between two points"""
-    return np.sqrt(np.sum((a-b)**2))
-
-def modecount(box, nbins):
-    """Count the modes in each bin."""
-    return _autocorr_priv.modecount(box, nbins)
-
-def modecount_mc(box, nbins, nsample):
-    """Count the modes in each bin."""
-    return _autocorr_priv.modecount_mc(box, nbins, nsample)
-
-def modecount2(box,nbins):
-    """An analytic approximation to modecount, above. Does not work because of finite box-size effects"""
-    count = np.zeros(nbins)
-    for nn in xrange(0,nbins):
-        #Count number of square bins in a circle of radius sqrt(dims)*size,
-        #intersecting with a square box of length L
-        #This is 4 * (quarter circle)
-        # = 4 * sum(y < r) \sqrt(r^2-y^2)
-        #Maximal radius in this bin
-        rr = (1+nn)*np.sqrt(2)*box/(1.*nbins)
-        #Vector of y values
-        yy = np.arange(0,np.floor(rr))
-        #Vector of integrands along x axis
-        count[nn] = 4*np.sum(np.ceil(np.sqrt(rr**2 - yy**2)))
-    #Take off the modes in previous bin to get an annulus
-    for nn in xrange(nbins-1,0,-1):
-        count[nn] -= count[nn-1]
-
+def modecount(nspec, npix, nout=100):
+    """Count the modes in each bin for the supplied regularly spaced spectra."""
+    return _autocorr_priv.modecount(nspec, npix, nout)
